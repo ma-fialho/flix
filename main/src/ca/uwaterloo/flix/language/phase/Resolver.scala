@@ -508,7 +508,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
           case NamedAst.Attribute(_, AttributeMode.Explicit, _, _) :: rs =>
             ys.head :: pair(rs, ys.tail)
           case NamedAst.Attribute(_, AttributeMode.Implicit, _, _) :: rs =>
-            ResolvedAst.Expression.Var(Symbol.freshVarSym("implicit"), SourceLocation.Unknown) :: pair(rs, ys)
+            ResolvedAst.Expression.Var(Symbol.freshImplicitVarSym("implicit"), SourceLocation.Unknown) :: pair(rs, ys)
         }
 
         val result = pair(t.attr, args)

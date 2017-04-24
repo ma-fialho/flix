@@ -144,6 +144,7 @@ object Ast {
   /**
     * The mode of an attribute.
     */
+  // TODO: Rename, and possibly move?
   sealed trait AttributeMode
 
   object AttributeMode {

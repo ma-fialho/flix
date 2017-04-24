@@ -17,6 +17,7 @@
 package ca.uwaterloo.flix.language.ast
 
 import ca.uwaterloo.flix.language.GenSym
+import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
 import ca.uwaterloo.flix.language.ast.Name.{Ident, NName}
 import ca.uwaterloo.flix.util.InternalCompilerException
 
@@ -44,28 +45,35 @@ object Symbol {
     * Returns a fresh variable symbol with no additional information.
     */
   def freshVarSym()(implicit genSym: GenSym): VarSym = {
-    new VarSym(genSym.freshId(), "tmp", Type.freshTypeVar(), SourceLocation.Unknown)
+    new VarSym(genSym.freshId(), "tmp", AttributeMode.Explicit, Type.freshTypeVar(), SourceLocation.Unknown)
   }
 
   /**
     * Returns a fresh variable symbol based on the given symbol.
     */
   def freshVarSym(sym: VarSym)(implicit genSym: GenSym): VarSym = {
-    new VarSym(genSym.freshId(), sym.text, sym.tvar, sym.loc)
+    new VarSym(genSym.freshId(), sym.text, sym.mode, sym.tvar, sym.loc)
   }
 
   /**
     * Returns a fresh variable symbol for the given identifier.
     */
   def freshVarSym(ident: Name.Ident)(implicit genSym: GenSym): VarSym = {
-    new VarSym(genSym.freshId(), ident.name, Type.freshTypeVar(), ident.loc)
+    new VarSym(genSym.freshId(), ident.name, AttributeMode.Explicit, Type.freshTypeVar(), ident.loc)
   }
 
   /**
     * Returns a fresh variable symbol with the given text.
     */
   def freshVarSym(text: String)(implicit genSym: GenSym): VarSym = {
-    new VarSym(genSym.freshId(), text, Type.freshTypeVar(), SourceLocation.Unknown)
+    new VarSym(genSym.freshId(), text, AttributeMode.Explicit, Type.freshTypeVar(), SourceLocation.Unknown)
+  }
+
+  /**
+    * Returns a fresh implicit variable symbol with the given text.
+    */
+  def freshImplicitVarSym(text: String)(implicit genSym: GenSym): VarSym = {
+    new VarSym(genSym.freshId(), text, AttributeMode.Implicit, Type.freshTypeVar(), SourceLocation.Unknown)
   }
 
   /**
@@ -132,10 +140,11 @@ object Symbol {
     *
     * @param id   the globally unique name of the symbol.
     * @param text the original name, as it appears in the source code, of the symbol
+    * @param mode the mode of the variable symbol.
     * @param tvar the type variable associated with the symbol.
     * @param loc  the source location associated with the symbol.
     */
-  final class VarSym(val id: Int, val text: String, val tvar: Type.Var, val loc: SourceLocation) {
+  final class VarSym(val id: Int, val text: String, val mode: AttributeMode, val tvar: Type.Var, val loc: SourceLocation) {
 
     /**
       * The internal stack offset. Computed during variable numbering.
