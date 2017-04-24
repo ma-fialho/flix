@@ -18,9 +18,11 @@ package ca.uwaterloo.flix.language.phase
 
 import ca.uwaterloo.flix.api.Flix
 import ca.uwaterloo.flix.language.CompilationError
-import ca.uwaterloo.flix.language.ast.TypedAst
+import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
+import ca.uwaterloo.flix.language.ast.{Symbol, Type, TypedAst}
 import ca.uwaterloo.flix.util.Validation
 import ca.uwaterloo.flix.util.Validation._
+import ca.uwaterloo.flix.util.collection.MultiMap
 
 object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
@@ -28,16 +30,33 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
     for (stratum <- root.strata) {
       for (constraint <- stratum.constraints) {
-        foo(constraint, root)
+        foo(constraint)
       }
     }
 
     root.toSuccess
   }
 
-  def foo(c: TypedAst.Constraint, root: TypedAst.Root): TypedAst.Constraint = {
 
-    // TODO: Compute equivalences.
+  def foo(c: TypedAst.Constraint): TypedAst.Constraint = {
+
+    // An equivalence relation on implicit variable symbols that share the same type.
+    val m = new MultiMap[Type, Symbol.VarSym]
+
+    for (cparam <- c.cparams) {
+      cparam match {
+        case TypedAst.ConstraintParam.HeadParam(sym, tpe, loc) =>
+          // Nop - no equivalences for head parameters.
+        case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) =>
+          // Check if the symbol is implicit.
+          if (sym.mode == AttributeMode.Implicit) {
+
+          }
+      }
+
+    }
+
+    // TODO: Perform substitution.
 
     c
   }
