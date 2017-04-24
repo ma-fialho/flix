@@ -59,6 +59,8 @@ object NamedAst {
   sealed trait Table extends NamedAst.Declaration {
     def sym: Symbol.TableSym
 
+    def attr: List[NamedAst.Attribute]
+
     def loc: SourceLocation
   }
 
@@ -66,7 +68,9 @@ object NamedAst {
 
     case class Relation(doc: Option[Ast.Documentation], sym: Symbol.TableSym, attr: List[NamedAst.Attribute], loc: SourceLocation) extends NamedAst.Table
 
-    case class Lattice(doc: Option[Ast.Documentation], sym: Symbol.TableSym, keys: List[NamedAst.Attribute], value: NamedAst.Attribute, loc: SourceLocation) extends NamedAst.Table
+    case class Lattice(doc: Option[Ast.Documentation], sym: Symbol.TableSym, keys: List[NamedAst.Attribute], value: NamedAst.Attribute, loc: SourceLocation) extends NamedAst.Table {
+      def attr: List[NamedAst.Attribute] = keys ::: value :: Nil
+    }
 
   }
 

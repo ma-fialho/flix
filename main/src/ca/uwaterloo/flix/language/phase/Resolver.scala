@@ -17,6 +17,8 @@
 package ca.uwaterloo.flix.language.phase
 
 import ca.uwaterloo.flix.api.Flix
+import ca.uwaterloo.flix.language.GenSym
+import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
 import ca.uwaterloo.flix.language.ast._
 import ca.uwaterloo.flix.language.errors.ResolutionError
 import ca.uwaterloo.flix.util.Validation._
@@ -77,7 +79,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
     }
 
     val constraintsVal = prog0.constraints.map {
-      case (ns0, constraints) => Constraints.resolve(constraints, ns0, prog0)
+      case (ns0, constraints) => Constraints.resolve(constraints, ns0, prog0)(flix.genSym)
     }
 
     val propertiesVal = prog0.properties.map {
@@ -103,14 +105,14 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
     /**
       * Performs name resolution on the given `constraints` in the given namespace `ns0`.
       */
-    def resolve(constraints: List[NamedAst.Constraint], ns0: Name.NName, prog0: NamedAst.Program): Validation[List[ResolvedAst.Constraint], ResolutionError] = {
+    def resolve(constraints: List[NamedAst.Constraint], ns0: Name.NName, prog0: NamedAst.Program)(implicit genSym: GenSym): Validation[List[ResolvedAst.Constraint], ResolutionError] = {
       seqM(constraints.map(c => resolve(c, ns0, prog0)))
     }
 
     /**
       * Performs name resolution on the given constraint `c0` in the given namespace `ns0`.
       */
-    def resolve(c0: NamedAst.Constraint, ns0: Name.NName, prog0: NamedAst.Program): Validation[ResolvedAst.Constraint, ResolutionError] = {
+    def resolve(c0: NamedAst.Constraint, ns0: Name.NName, prog0: NamedAst.Program)(implicit genSym: GenSym): Validation[ResolvedAst.Constraint, ResolutionError] = {
       for {
         ps <- seqM(c0.cparams.map(p => Params.resolve(p, ns0, prog0)))
         h <- Predicates.Head.resolve(c0.head, ns0, prog0)
@@ -423,7 +425,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
       /**
         * Performs name resolution on the given head predicate `h0` in the given namespace `ns0`.
         */
-      def resolve(h0: NamedAst.Predicate.Head, ns0: Name.NName, prog0: NamedAst.Program): Validation[ResolvedAst.Predicate.Head, ResolutionError] = h0 match {
+      def resolve(h0: NamedAst.Predicate.Head, ns0: Name.NName, prog0: NamedAst.Program)(implicit genSym: GenSym): Validation[ResolvedAst.Predicate.Head, ResolutionError] = h0 match {
         case NamedAst.Predicate.Head.True(loc) => ResolvedAst.Predicate.Head.True(loc).toSuccess
 
         case NamedAst.Predicate.Head.False(loc) => ResolvedAst.Predicate.Head.False(loc).toSuccess
@@ -432,7 +434,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
           for {
             t <- lookupTable(qname, ns0, prog0)
             ts <- seqM(terms.map(t => Expressions.resolve(t, ns0, prog0)))
-          } yield ResolvedAst.Predicate.Head.Positive(t.sym, ts, loc)
+          } yield ResolvedAst.Predicate.Head.Positive(t.sym, getTermsWithImplicits(t, ts), loc)
 
         case NamedAst.Predicate.Head.Negative(qname, terms, loc) =>
           for {
@@ -475,6 +477,48 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
           } yield ResolvedAst.Predicate.Body.Loop(p, t, loc)
       }
     }
+
+    /**
+      * Returns the terms of the given table `t` with arguments `args` with implicit parameters (if applicable).
+      */
+    private def getTermsWithImplicits(t: NamedAst.Table, args: List[ResolvedAst.Expression])(implicit genSym: GenSym): List[ResolvedAst.Expression] = {
+      // Compute the number of actual arguments.
+      val numberOfArguments = args.length
+
+      // Compute the number of declared attributes.
+      val numberOfAttributes = t.attr.length
+
+      // Check if the number of actual arguments exactly match the number of declared attributes.
+      if (numberOfArguments == numberOfAttributes) {
+        // Case 1: Exact match. Return the arguments unmodified.
+        return args
+      }
+
+      // Compute the number of explicit and implicit attributes.
+      val numberOfExplicit = t.attr.count(_.mode == AttributeMode.Explicit)
+      val numberOfImplicit = t.attr.count(_.mode == AttributeMode.Implicit)
+
+      // Check if the number of actual arguments exactly match the number of explicit attributes.
+      if (numberOfArguments == numberOfExplicit) {
+        // Case 2: Actual arguments match explicit arguments.
+
+        // Introduce implicit arguments at the appropriate positions.
+        def pair(xs: List[NamedAst.Attribute], ys: List[ResolvedAst.Expression]): List[ResolvedAst.Expression] = xs match {
+          case Nil => Nil
+          case NamedAst.Attribute(_, AttributeMode.Explicit, _, _) :: rs =>
+            ys.head :: pair(rs, ys.tail)
+          case NamedAst.Attribute(_, AttributeMode.Implicit, _, _) :: rs =>
+            ResolvedAst.Expression.Var(Symbol.freshVarSym("implicit"), SourceLocation.Unknown) :: pair(rs, ys)
+        }
+
+        val result = pair(t.attr, args)
+        result
+      } else {
+        throw InternalCompilerException(s"Mismatched arguments: Given $numberOfArguments arguments. Expected either $numberOfAttributes or $numberOfExplicit.")
+      }
+    }
+
+    // TODO: need variant for head.
 
   }
 
