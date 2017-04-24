@@ -267,6 +267,7 @@ class Flix {
             Namer |>
             Resolver |>
             Typer |>
+            Implicits |>
             Documentor |>
             Stratifier |>
             Monomorph |>

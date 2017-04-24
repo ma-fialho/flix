@@ -117,7 +117,10 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         ps <- seqM(c0.cparams.map(p => Params.resolve(p, ns0, prog0)))
         h <- Predicates.Head.resolve(c0.head, ns0, prog0)
         bs <- seqM(c0.body.map(b => Predicates.Body.resolve(b, ns0, prog0)))
-      } yield ResolvedAst.Constraint(ps, h, bs, c0.loc)
+      } yield {
+        // TODO: Do we need to reconstruct/reassemble the contraint params here?
+        ResolvedAst.Constraint(ps, h, bs, c0.loc)
+      }
     }
 
   }
@@ -434,7 +437,11 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
           for {
             t <- lookupTable(qname, ns0, prog0)
             ts <- seqM(terms.map(t => Expressions.resolve(t, ns0, prog0)))
-          } yield ResolvedAst.Predicate.Head.Positive(t.sym, getTermsWithImplicits(t, ts), loc)
+          } yield {
+            def f(sym: Symbol.VarSym): ResolvedAst.Expression = ResolvedAst.Expression.Var(sym, SourceLocation.Unknown)
+            val terms = getTermsWithImplicits(t, ts, f)
+            ResolvedAst.Predicate.Head.Positive(t.sym, terms, loc)
+          }
 
         case NamedAst.Predicate.Head.Negative(qname, terms, loc) =>
           for {
@@ -448,18 +455,26 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
       /**
         * Performs name resolution on the given body predicate `b0` in the given namespace `ns0`.
         */
-      def resolve(b0: NamedAst.Predicate.Body, ns0: Name.NName, prog0: NamedAst.Program): Validation[ResolvedAst.Predicate.Body, ResolutionError] = b0 match {
+      def resolve(b0: NamedAst.Predicate.Body, ns0: Name.NName, prog0: NamedAst.Program)(implicit genSym: GenSym): Validation[ResolvedAst.Predicate.Body, ResolutionError] = b0 match {
         case NamedAst.Predicate.Body.Positive(qname, terms, loc) =>
           for {
-            d <- lookupTable(qname, ns0, prog0)
+            t <- lookupTable(qname, ns0, prog0)
             ts <- seqM(terms.map(t => Patterns.resolve(t, ns0, prog0)))
-          } yield ResolvedAst.Predicate.Body.Positive(d.sym, ts, loc)
+          } yield {
+            def f(sym: Symbol.VarSym): ResolvedAst.Pattern = ResolvedAst.Pattern.Var(sym, Type.freshTypeVar(), SourceLocation.Unknown)
+            val terms = getTermsWithImplicits(t, ts, f)
+            ResolvedAst.Predicate.Body.Positive(t.sym, ts, loc)
+          }
 
         case NamedAst.Predicate.Body.Negative(qname, terms, loc) =>
           for {
-            d <- lookupTable(qname, ns0, prog0)
+            t <- lookupTable(qname, ns0, prog0)
             ts <- seqM(terms.map(t => Patterns.resolve(t, ns0, prog0)))
-          } yield ResolvedAst.Predicate.Body.Negative(d.sym, ts, loc)
+          } yield {
+            def f(sym: Symbol.VarSym): ResolvedAst.Pattern = ResolvedAst.Pattern.Var(sym, Type.freshTypeVar(), SourceLocation.Unknown)
+            val terms = getTermsWithImplicits(t, ts, f)
+            ResolvedAst.Predicate.Body.Negative(t.sym, ts, loc)
+          }
 
         case NamedAst.Predicate.Body.Filter(qname, terms, loc) =>
           lookupRef(qname, ns0, prog0) flatMap {
@@ -481,7 +496,8 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
     /**
       * Returns the terms of the given table `t` with arguments `args` with implicit parameters (if applicable).
       */
-    private def getTermsWithImplicits(t: NamedAst.Table, args: List[ResolvedAst.Expression])(implicit genSym: GenSym): List[ResolvedAst.Expression] = {
+    // TODO: Decide whether it is better to have this be generic or to allow some duplication.
+    private def getTermsWithImplicits[A](t: NamedAst.Table, args: List[A], f: Symbol.VarSym => A)(implicit genSym: GenSym): List[A] = {
       // Compute the number of actual arguments.
       val numberOfArguments = args.length
 
@@ -503,22 +519,22 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         // Case 2: Actual arguments match explicit arguments.
 
         // Introduce implicit arguments at the appropriate positions.
-        def pair(xs: List[NamedAst.Attribute], ys: List[ResolvedAst.Expression]): List[ResolvedAst.Expression] = xs match {
+        def pair(xs: List[NamedAst.Attribute], ys: List[A]): List[A] = xs match {
           case Nil => Nil
           case NamedAst.Attribute(_, AttributeMode.Explicit, _, _) :: rs =>
             ys.head :: pair(rs, ys.tail)
           case NamedAst.Attribute(_, AttributeMode.Implicit, _, _) :: rs =>
-            ResolvedAst.Expression.Var(Symbol.freshImplicitVarSym("implicit"), SourceLocation.Unknown) :: pair(rs, ys)
+            f(Symbol.freshImplicitVarSym("implicit")) :: pair(rs, ys)
         }
 
         val result = pair(t.attr, args)
-        result
-      } else {
-        throw InternalCompilerException(s"Mismatched arguments: Given $numberOfArguments arguments. Expected either $numberOfAttributes or $numberOfExplicit.")
+        return result
       }
-    }
 
-    // TODO: need variant for head.
+      // Case 3: The actual number of arguments does not match
+      // the number of attributes nor the number of explicit attributes.
+      throw InternalCompilerException(s"Mismatched arguments: Given $numberOfArguments arguments. Expected either $numberOfAttributes or $numberOfExplicit.")
+    }
 
   }
 
