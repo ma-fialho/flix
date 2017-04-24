@@ -16,6 +16,8 @@
 
 package ca.uwaterloo.flix.language.ast
 
+import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
+
 import scala.collection.immutable.Seq
 
 /**
@@ -918,13 +920,35 @@ object ParsedAst {
 
   /**
     * Attribute.
-    *
-    * @param sp1   the position of the first character in the attribute.
-    * @param ident the name of the attribute.
-    * @param tpe   the type of the attribute.
-    * @param sp2   the position of the last character in the annotation.
     */
-  case class Attribute(sp1: SourcePosition, ident: Name.Ident, tpe: ParsedAst.Type, sp2: SourcePosition)
+  sealed trait Attribute {
+    def sp1: SourcePosition
+    def sp2: SourcePosition
+  }
+
+  object Attribute {
+
+    /**
+      * Explicit Attribute.
+      *
+      * @param sp1   the position of the first character in the attribute.
+      * @param ident the name of the attribute.
+      * @param tpe   the type of the attribute.
+      * @param sp2   the position of the last character in the annotation.
+      */
+    case class Explicit(sp1: SourcePosition, ident: Name.Ident, tpe: ParsedAst.Type, sp2: SourcePosition) extends Attribute
+
+    /**
+      * Implicit Attribute.
+      *
+      * @param sp1   the position of the first character in the attribute.
+      * @param ident the name of the attribute.
+      * @param tpe   the type of the attribute.
+      * @param sp2   the position of the last character in the annotation.
+      */
+    case class Implicit(sp1: SourcePosition, ident: Name.Ident, tpe: ParsedAst.Type, sp2: SourcePosition) extends Attribute
+
+  }
 
   /**
     * Case (member of an enum).

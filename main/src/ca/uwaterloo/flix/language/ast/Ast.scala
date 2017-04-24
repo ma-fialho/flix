@@ -142,6 +142,25 @@ object Ast {
   }
 
   /**
+    * The mode of an attribute.
+    */
+  sealed trait AttributeMode
+
+  object AttributeMode {
+
+    /**
+      * An explicit attribute.
+      */
+    case object Explicit extends AttributeMode
+
+    /**
+      * An implicit attribute.
+      */
+    case object Implicit extends AttributeMode
+
+  }
+
+  /**
     * Documentation.
     *
     * @param text the text of the documentation.

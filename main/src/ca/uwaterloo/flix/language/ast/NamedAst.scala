@@ -19,6 +19,7 @@ package ca.uwaterloo.flix.language.ast
 import java.lang.reflect.{Constructor, Field, Method}
 
 import ca.uwaterloo.flix.language.ast
+import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
 
 import scala.collection.immutable.List
 
@@ -57,7 +58,7 @@ object NamedAst {
 
   sealed trait Table extends NamedAst.Declaration {
     def sym: Symbol.TableSym
-    
+
     def loc: SourceLocation
   }
 
@@ -237,7 +238,7 @@ object NamedAst {
 
   case class Scheme(quantifiers: List[ast.Type.Var], base: NamedAst.Type) extends NamedAst
 
-  case class Attribute(ident: Name.Ident, tpe: NamedAst.Type, loc: SourceLocation) extends NamedAst
+  case class Attribute(ident: Name.Ident, mode: AttributeMode, tpe: NamedAst.Type, loc: SourceLocation) extends NamedAst
 
   case class Case(enum: Name.Ident, tag: Name.Ident, tpe: NamedAst.Type) extends NamedAst
 

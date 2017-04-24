@@ -686,7 +686,7 @@ object Namer extends Phase[WeededAst.Program, NamedAst.Program] {
       * Translates the given weeded attribute to a named attribute.
       */
     def namer(attr: WeededAst.Attribute, tenv0: Map[String, Type.Var])(implicit genSym: GenSym): NamedAst.Attribute = attr match {
-      case WeededAst.Attribute(ident, tpe, loc) => NamedAst.Attribute(ident, Types.namer(tpe, tenv0), loc)
+      case WeededAst.Attribute(ident, mode, tpe, loc) => NamedAst.Attribute(ident, mode, Types.namer(tpe, tenv0), loc)
     }
 
   }

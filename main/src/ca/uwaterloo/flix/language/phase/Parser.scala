@@ -270,8 +270,18 @@ class Parser(val source: SourceInput) extends org.parboiled2.Parser {
 
   }
 
-  def Attribute: Rule1[ParsedAst.Attribute] = rule {
-    SP ~ Names.Attribute ~ optWS ~ ":" ~ optWS ~ Type ~ SP ~> ParsedAst.Attribute
+  def Attribute: Rule1[ParsedAst.Attribute] = {
+    def ExplicitAttribute: Rule1[ParsedAst.Attribute] = rule {
+      SP ~ Names.Attribute ~ optWS ~ ":" ~ optWS ~ Type ~ SP ~> ParsedAst.Attribute.Explicit
+    }
+
+    def ImplicitAttribute: Rule1[ParsedAst.Attribute] = rule {
+      SP ~ atomic("implicit") ~ WS ~ Names.Attribute ~ optWS ~ ":" ~ optWS ~ Type ~ SP ~> ParsedAst.Attribute.Implicit
+    }
+
+    rule {
+      ExplicitAttribute | ImplicitAttribute
+    }
   }
 
   def Attributes: Rule1[Seq[ParsedAst.Attribute]] = rule {

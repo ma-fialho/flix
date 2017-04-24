@@ -16,6 +16,8 @@
 
 package ca.uwaterloo.flix.language.ast
 
+import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
+
 trait WeededAst
 
 object WeededAst {
@@ -222,7 +224,7 @@ object WeededAst {
 
   }
 
-  case class Attribute(ident: Name.Ident, tpe: WeededAst.Type, loc: SourceLocation) extends WeededAst
+  case class Attribute(ident: Name.Ident, mode: AttributeMode, tpe: WeededAst.Type, loc: SourceLocation) extends WeededAst
 
   case class Case(enum: Name.Ident, tag: Name.Ident, tpe: WeededAst.Type) extends WeededAst
 

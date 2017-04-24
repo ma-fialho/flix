@@ -19,6 +19,7 @@ package ca.uwaterloo.flix.language.phase
 import java.math.BigInteger
 
 import ca.uwaterloo.flix.api.Flix
+import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
 import ca.uwaterloo.flix.language.ast._
 import ca.uwaterloo.flix.language.errors.WeederError
 import ca.uwaterloo.flix.language.errors.WeederError._
@@ -1096,10 +1097,19 @@ object Weeder extends Phase[ParsedAst.Program, WeededAst.Program] {
   private def checkDuplicateAttribute(attrs: Seq[ParsedAst.Attribute]): Validation[List[WeededAst.Attribute], WeederError] = {
     val seen = mutable.Map.empty[String, ParsedAst.Attribute]
     @@(attrs.map {
-      case attr@ParsedAst.Attribute(sp1, ident, tpe, sp2) => seen.get(ident.name) match {
+      case attr@ParsedAst.Attribute.Explicit(sp1, ident, tpe, sp2) => seen.get(ident.name) match {
         case None =>
           seen += (ident.name -> attr)
-          WeededAst.Attribute(ident, Types.weed(tpe), mkSL(sp1, sp2)).toSuccess
+          WeededAst.Attribute(ident,  AttributeMode.Explicit, Types.weed(tpe), mkSL(sp1, sp2)).toSuccess
+        case Some(otherAttr) =>
+          val loc1 = mkSL(otherAttr.sp1, otherAttr.sp2)
+          val loc2 = mkSL(attr.sp1, attr.sp2)
+          DuplicateAttribute(ident.name, loc1, loc2).toFailure
+      }
+      case attr@ParsedAst.Attribute.Implicit(sp1, ident, tpe, sp2) => seen.get(ident.name) match {
+        case None =>
+          seen += (ident.name -> attr)
+          WeededAst.Attribute(ident,  AttributeMode.Implicit, Types.weed(tpe), mkSL(sp1, sp2)).toSuccess
         case Some(otherAttr) =>
           val loc1 = mkSL(otherAttr.sp1, otherAttr.sp2)
           val loc2 = mkSL(attr.sp1, attr.sp2)
