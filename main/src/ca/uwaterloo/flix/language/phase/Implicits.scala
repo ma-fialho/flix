@@ -30,7 +30,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
     for (stratum <- root.strata) {
       for (constraint <- stratum.constraints) {
-        foo(constraint)
+        implicify(constraint)
       }
     }
 
@@ -38,7 +38,9 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   }
 
 
-  def foo(c: TypedAst.Constraint): TypedAst.Constraint = {
+  def implicify(c: TypedAst.Stratum): TypedAst.Stratum = ???
+
+  def implicify(c: TypedAst.Constraint): TypedAst.Constraint = {
 
     // An equivalence relation on implicit variable symbols that share the same type.
     val m = new MultiMap[Type, Symbol.VarSym]
@@ -46,7 +48,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     for (cparam <- c.cparams) {
       cparam match {
         case TypedAst.ConstraintParam.HeadParam(sym, tpe, loc) =>
-          // Nop - no equivalences for head parameters.
+        // Nop - no equivalences for head parameters.
         case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) =>
           // Check if the symbol is implicit.
           if (sym.mode == AttributeMode.Implicit) {
@@ -60,5 +62,21 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
     c
   }
+
+  /**
+    * Picks a representative from the the set `s` and returns a substitution map
+    * replacing every other symbols with the picked representative.
+    */
+  def getSubstitution(xs: Set[Symbol.VarSym]): Map[Symbol.VarSym, Symbol.VarSym] = ???
+
+  // TODO
+  def replace(c: TypedAst.Constraint, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Constraint = ???
+
+  def replace(p: TypedAst.Predicate.Head, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Constraint = ???
+
+  def replace(p: TypedAst.Predicate.Body, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Constraint = ???
+
+  // TODO: Replace in patterns/expressions?
+
 
 }
