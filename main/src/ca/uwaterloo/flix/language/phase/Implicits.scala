@@ -69,7 +69,9 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     val substitutions = equivalences.map(getSubstitution)
 
     // Since the equivalence classes form a partition we can merge the substitution map into one.
-    val substitution = substitutions.reduce(_ ++ _)
+    val substitution = substitutions.foldLeft(Map.empty[Symbol.VarSym, Symbol.VarSym]) {
+      case (macc, subst) => macc ++ subst
+    }
 
     // Apply the substitution to the constraint.
     replace(c, substitution)
@@ -79,16 +81,81 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     * Picks a representative from the the set `s` and returns a substitution map
     * replacing every other symbols with the picked representative.
     */
-  def getSubstitution(xs: Set[Symbol.VarSym]): Map[Symbol.VarSym, Symbol.VarSym] = ???
+  def getSubstitution(ec: Set[Symbol.VarSym]): Map[Symbol.VarSym, Symbol.VarSym] = {
+    // Randomly pick the first element of the equivalence class.
+    val representative = ec.head
 
-  // TODO
-  def replace(c: TypedAst.Constraint, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Constraint = ???
+    // Map every other symbol to the representative.
+    ec.foldLeft(Map.empty[Symbol.VarSym, Symbol.VarSym]) {
+      case (macc, sym) => macc + (sym -> representative)
+    }
+  }
 
-  def replace(p: TypedAst.Predicate.Head, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Constraint = ???
+  /**
+    * Applies the given substitution map `subst` to every variable in the given constraint `c`.
+    */
+  def replace(c: TypedAst.Constraint, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Constraint = c match {
+    case TypedAst.Constraint(cparams0, head0, body0, loc) =>
+      // TODO: Fix cparams
+      val cparams = cparams0
+      val head = replace(head0, subst)
+      val body = body0.map(b => replace(b, subst))
+      TypedAst.Constraint(cparams, head, body, c.loc)
+  }
 
-  def replace(p: TypedAst.Predicate.Body, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Constraint = ???
+  /**
+    * Applies the given substitution map `subst` to every variable in the given head predicate `h`.
+    */
+  def replace(h: TypedAst.Predicate.Head, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Predicate.Head = h match {
+    case TypedAst.Predicate.Head.True(loc) => TypedAst.Predicate.Head.True(loc)
+    case TypedAst.Predicate.Head.False(loc) => TypedAst.Predicate.Head.False(loc)
+    case TypedAst.Predicate.Head.Positive(sym, terms, loc) =>
+      val ts = terms.map(t => replace(t, subst))
+      TypedAst.Predicate.Head.Positive(sym, ts, loc)
+    case TypedAst.Predicate.Head.Negative(sym, terms, loc) =>
+      val ts = terms.map(t => replace(t, subst))
+      TypedAst.Predicate.Head.Negative(sym, ts, loc)
+  }
 
-  // TODO: Replace in patterns/expressions?
+  /**
+    * Applies the given substitution map `subst` to every variable in the given body predicate `h`.
+    */
+  def replace(b: TypedAst.Predicate.Body, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Predicate.Body = b match {
+    case TypedAst.Predicate.Body.Positive(sym, terms, loc) =>
+      val ts = terms.map(t => replace(t, subst))
+      TypedAst.Predicate.Body.Positive(sym, ts, loc)
+    case TypedAst.Predicate.Body.Negative(sym, terms, loc) =>
+      val ts = terms.map(t => replace(t, subst))
+      TypedAst.Predicate.Body.Negative(sym, ts, loc)
+    // TODO: How do implicits interact with filter and loop predicates?
+    case TypedAst.Predicate.Body.Filter(sym, terms, loc) => b
+    case TypedAst.Predicate.Body.Loop(sym, term, loc) => b
+  }
 
+  /**
+    * Applies given substitution map `subst` to every variable in the given expression `e`.
+    *
+    * NB: Implicit parameters always occur at the top-level and so this is the only place renaming has to occur.
+    */
+  def replace(e: TypedAst.Expression, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Expression = e match {
+    case TypedAst.Expression.Var(sym, tpe, loc) => subst.get(sym) match {
+      case None => TypedAst.Expression.Var(sym, tpe, loc)
+      case Some(newSym) => TypedAst.Expression.Var(newSym, tpe, loc)
+    }
+    case _ => e
+  }
+
+  /**
+    * Applies given substitution map `subst` to every variable in the given pattern `p`.
+    *
+    * NB: Implicit parameters always occur at the top-level and so this is the only place renaming has to occur.
+    */
+  def replace(p: TypedAst.Pattern, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Pattern = p match {
+    case TypedAst.Pattern.Var(sym, tpe, loc) => subst.get(sym) match {
+      case None => TypedAst.Pattern.Var(sym, tpe, loc)
+      case Some(newSym) => TypedAst.Pattern.Var(newSym, tpe, loc)
+    }
+    case _ => p
+  }
 
 }
