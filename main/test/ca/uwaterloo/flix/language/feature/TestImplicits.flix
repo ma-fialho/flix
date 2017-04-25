@@ -91,6 +91,34 @@ namespace TestImplicits {
     }
 
 
+    namespace RealWorld01 {
+        type Ctx = Ctx(Str)
+        type Stm = Stm(Str)
+        type Var = Var(Str)
+        type Obj = Obj(Str)
+        type Fld = Fld(Str)
 
+        rel VarPointsToIn(implicit c: Ctx, implicit s: Stm, x: Var, o: Obj)
+        rel VarPointsToOut(implicit c: Ctx, implicit s: Stm, x: Var, o: Obj)
+        rel Load(implicit s: Stm, resultVar: Var, baseVar: Var, f: Fld)
+        rel HeapPointsToIn(implicit c: Ctx, implicit s: Stm, baseObj: Obj, f: Fld, targetObj: Obj)
+
+        Load(Stm("s1"), Var("result"), Var("o"), Fld("foo")).
+        VarPointsToIn(Ctx("Global"), Stm("s1"), Var("o"), Obj("obj1")).
+        HeapPointsToIn(Ctx("Global"), Stm("s1"), Obj("obj1"), Fld("foo"), Obj("obj2")).
+
+        // s: resultVar = baseVar . fld
+        VarPointsToOut(resultVar, targetObj) :-
+            Load(resultVar, baseVar, fld),
+            VarPointsToIn(baseVar, baseObj),
+            HeapPointsToIn(baseObj, fld, targetObj).
+
+//        +---------------+-----------+---------------+-------------+
+//        | c             | s         | x             | o           |
+//        +---------------+-----------+---------------+-------------+
+//        | Ctx("Global") | Stm("s1") | Var("result") | Obj("obj2") |
+//        +---------------+-----------+---------------+-------------+
+
+    }
 
 }
