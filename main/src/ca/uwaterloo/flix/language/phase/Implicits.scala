@@ -82,6 +82,10 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     * replacing every other symbols with the picked representative.
     */
   def getSubstitution(ec: Set[Symbol.VarSym]): Map[Symbol.VarSym, Symbol.VarSym] = {
+    // Check if the equivalence class is a singleton. If so, simply return the empty map.
+    if (ec.size == 1)
+      return Map.empty
+
     // Randomly pick the first element of the equivalence class.
     val representative = ec.head
 

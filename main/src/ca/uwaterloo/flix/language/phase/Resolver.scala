@@ -118,8 +118,16 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         h <- Predicates.Head.resolve(c0.head, ns0, prog0)
         bs <- seqM(c0.body.map(b => Predicates.Body.resolve(b, ns0, prog0)))
       } yield {
-        // TODO: Do we need to reconstruct/reassemble the contraint params here?
-        ResolvedAst.Constraint(ps, h, bs, c0.loc)
+        // Compute the implicit parameters introduced in the head and body predicates.
+        val implicitsHead = Predicates.Head.implicitsOf(h)
+        val implicitsBody = bs.flatMap(b => Predicates.Body.implicitsOf(b)).toSet
+        val implicits = (implicitsHead ++ implicitsBody).toList
+
+        val extraParams = implicits map {
+          case sym => ResolvedAst.ConstraintParam.RuleParam(sym, sym.tvar, sym.loc)
+        }
+
+        ResolvedAst.Constraint(ps ::: extraParams, h, bs, c0.loc)
       }
     }
 
@@ -439,6 +447,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
             ts <- seqM(terms.map(t => Expressions.resolve(t, ns0, prog0)))
           } yield {
             def f(sym: Symbol.VarSym): ResolvedAst.Expression = ResolvedAst.Expression.Var(sym, SourceLocation.Unknown)
+
             val terms = getTermsWithImplicits(t, ts, f)
             ResolvedAst.Predicate.Head.Positive(t.sym, terms, loc)
           }
@@ -448,6 +457,27 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
             d <- lookupTable(qname, ns0, prog0)
             ts <- seqM(terms.map(t => Expressions.resolve(t, ns0, prog0)))
           } yield ResolvedAst.Predicate.Head.Negative(d.sym, ts, loc)
+      }
+
+      /**
+        * Returns the set of implicit parameters of the given head predicate `h0`.
+        */
+      def implicitsOf(h0: ResolvedAst.Predicate.Head): Set[Symbol.VarSym] = h0 match {
+        case ResolvedAst.Predicate.Head.True(loc) => Set.empty
+        case ResolvedAst.Predicate.Head.False(loc) => Set.empty
+        case ResolvedAst.Predicate.Head.Positive(_, terms, _) => terms.flatMap(implicitsOf).toSet
+        case ResolvedAst.Predicate.Head.Negative(_, terms, _) => terms.flatMap(implicitsOf).toSet
+      }
+
+      /**
+        * Returns the set of implicit parameters of the given expression `e0`.
+        */
+      private def implicitsOf(e0: ResolvedAst.Expression): Set[Symbol.VarSym] = e0 match {
+        case ResolvedAst.Expression.Var(sym, loc) => sym.mode match {
+          case AttributeMode.Explicit => Set.empty
+          case AttributeMode.Implicit => Set(sym)
+        }
+        case _ => Set.empty
       }
     }
 
@@ -462,8 +492,9 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
             ts <- seqM(terms.map(t => Patterns.resolve(t, ns0, prog0)))
           } yield {
             def f(sym: Symbol.VarSym): ResolvedAst.Pattern = ResolvedAst.Pattern.Var(sym, Type.freshTypeVar(), SourceLocation.Unknown)
+
             val terms = getTermsWithImplicits(t, ts, f)
-            ResolvedAst.Predicate.Body.Positive(t.sym, ts, loc)
+            ResolvedAst.Predicate.Body.Positive(t.sym, terms, loc)
           }
 
         case NamedAst.Predicate.Body.Negative(qname, terms, loc) =>
@@ -472,8 +503,9 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
             ts <- seqM(terms.map(t => Patterns.resolve(t, ns0, prog0)))
           } yield {
             def f(sym: Symbol.VarSym): ResolvedAst.Pattern = ResolvedAst.Pattern.Var(sym, Type.freshTypeVar(), SourceLocation.Unknown)
+
             val terms = getTermsWithImplicits(t, ts, f)
-            ResolvedAst.Predicate.Body.Negative(t.sym, ts, loc)
+            ResolvedAst.Predicate.Body.Negative(t.sym, terms, loc)
           }
 
         case NamedAst.Predicate.Body.Filter(qname, terms, loc) =>
@@ -490,6 +522,33 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
             p <- Patterns.resolve(pat, ns0, prog0)
             t <- Expressions.resolve(term, ns0, prog0)
           } yield ResolvedAst.Predicate.Body.Loop(p, t, loc)
+      }
+
+      /**
+        * Returns the set of implicit parameters of the given body predicate `b0`.
+        */
+      def implicitsOf(b0: ResolvedAst.Predicate.Body): Set[Symbol.VarSym] = b0 match {
+        case ResolvedAst.Predicate.Body.Positive(sym, terms, loc) =>
+          terms.foldLeft(Set.empty[Symbol.VarSym]) {
+            case (xs, p) => xs ++ implicitsOf(p)
+          }
+        case ResolvedAst.Predicate.Body.Negative(sym, terms, loc) =>
+          terms.foldLeft(Set.empty[Symbol.VarSym]) {
+            case (xs, p) => xs ++ implicitsOf(p)
+          }
+        case ResolvedAst.Predicate.Body.Filter(sym, terms, loc) => Set.empty
+        case ResolvedAst.Predicate.Body.Loop(pat, term, loc) => Set.empty
+      }
+
+      /**
+        * Returns the set of implicit parameters of the given pattern `p0`.
+        */
+      private def implicitsOf(p0: ResolvedAst.Pattern): Set[Symbol.VarSym] = p0 match {
+        case ResolvedAst.Pattern.Var(sym, tvar, loc) => sym.mode match {
+          case AttributeMode.Explicit => Set.empty
+          case AttributeMode.Implicit => Set(sym)
+        }
+        case _ => Set.empty
       }
     }
 
