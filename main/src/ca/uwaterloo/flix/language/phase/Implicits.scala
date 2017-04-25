@@ -91,7 +91,11 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
     // Map every other symbol to the representative.
     ec.foldLeft(Map.empty[Symbol.VarSym, Symbol.VarSym]) {
-      case (macc, sym) => macc + (sym -> representative)
+      case (macc, sym) =>
+        if (sym == representative)
+          macc
+        else
+          macc + (sym -> representative)
     }
   }
 
@@ -100,8 +104,10 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     */
   def replace(c: TypedAst.Constraint, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Constraint = c match {
     case TypedAst.Constraint(cparams0, head0, body0, loc) =>
-      // TODO: Fix cparams
-      val cparams = cparams0
+      val cparams = cparams0.filter {
+        case TypedAst.ConstraintParam.HeadParam(sym, _, _) => true
+        case TypedAst.ConstraintParam.RuleParam(sym, _, _) => !subst.contains(sym)
+      }
       val head = replace(head0, subst)
       val body = body0.map(b => replace(b, subst))
       TypedAst.Constraint(cparams, head, body, c.loc)
