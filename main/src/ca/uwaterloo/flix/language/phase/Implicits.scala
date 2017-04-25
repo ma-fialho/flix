@@ -29,6 +29,11 @@ import ca.uwaterloo.flix.util.collection.MultiMap
   */
 object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
+  // TODO: Do we want to allow explicit implicit parameters, e.g.:
+  //
+  // LocalVar(r, sum(?ctx, ?stm, v1, v2)) :- AddStm(r, x, y), LocalVar(x, v1), LocalVar(y, v2).
+  //
+
   /**
     * Performs implicit resolution on the constraints in the given program.
     */
