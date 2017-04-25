@@ -20,13 +20,22 @@ import scala.collection.mutable
 
 class MultiMap[K, V] {
 
-  // Internal map.
   private val m = mutable.Map.empty[K, Set[V]]
 
   /**
     * Returns the set of values associated with the given key `k`.
     */
   def get(k: K): Set[V] = m.getOrElse(k, Set.empty)
+
+  /**
+    * Returns the keys of the multi map.
+    */
+  def keys: Set[K] = m.keySet.toSet
+
+  /**
+    * Returns the values of the multi map.
+    */
+  def values: Set[Set[V]] = m.values.toSet
 
   /**
     * Adds the value `v` to the set of values associated with the key `k`.

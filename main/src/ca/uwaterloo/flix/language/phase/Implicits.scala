@@ -24,43 +24,55 @@ import ca.uwaterloo.flix.util.Validation
 import ca.uwaterloo.flix.util.Validation._
 import ca.uwaterloo.flix.util.collection.MultiMap
 
+/**
+  * Computes equivalences of implicit parameters in constraints.
+  */
 object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
+  /**
+    * Performs implicit resolution on the constraints in the given program.
+    */
   def run(root: TypedAst.Root)(implicit flix: Flix): Validation[TypedAst.Root, CompilationError] = {
-
-    for (stratum <- root.strata) {
-      for (constraint <- stratum.constraints) {
-        implicify(constraint)
-      }
-    }
-
-    root.toSuccess
+    val strata = root.strata.map(implicify)
+    root.copy(strata = strata).toSuccess
   }
 
+  /**
+    * Performs implicit resolution on the given stratum `s`.
+    */
+  def implicify(s: TypedAst.Stratum): TypedAst.Stratum = TypedAst.Stratum(s.constraints.map(implicify))
 
-  def implicify(c: TypedAst.Stratum): TypedAst.Stratum = ???
-
+  /**
+    * Performs implicit resolution on the given constraint `c`.
+    */
   def implicify(c: TypedAst.Constraint): TypedAst.Constraint = {
-
     // An equivalence relation on implicit variable symbols that share the same type.
     val m = new MultiMap[Type, Symbol.VarSym]
 
+    // Iterate through every constraint parameter to compute equivalences for each implicit parameter.
     for (cparam <- c.cparams) {
       cparam match {
         case TypedAst.ConstraintParam.HeadParam(sym, tpe, loc) =>
-        // Nop - no equivalences for head parameters.
+        // case 1: A head parameter is never implicit.
         case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) =>
-          // Check if the symbol is implicit.
+          // case 2: A rule parameter may be implicit.
           if (sym.mode == AttributeMode.Implicit) {
-
+            m.put(tpe, sym)
           }
       }
-
     }
 
-    // TODO: Perform substitution.
+    // Retrieve the equivalence classes.
+    val equivalences = m.values
 
-    c
+    // Pick a representative of each equivalence class and obtain a substitution map.
+    val substitutions = equivalences.map(getSubstitution)
+
+    // Since the equivalence classes form a partition we can merge the substitution map into one.
+    val substitution = substitutions.reduce(_ ++ _)
+
+    // Apply the substitution to the constraint.
+    replace(c, substitution)
   }
 
   /**
