@@ -34,6 +34,11 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   // LocalVar(r, sum(?ctx, ?stm, v1, v2)) :- AddStm(r, x, y), LocalVar(x, v1), LocalVar(y, v2).
   //
 
+  // TODO: We have to be careful with implicit variables not bound in the body. For example, this rule is unsafe:
+  //
+  // R(x, ?y) :- A(x) // where A does not define an implicit y.
+
+
   /**
     * Performs implicit resolution on the constraints in the given program.
     */
