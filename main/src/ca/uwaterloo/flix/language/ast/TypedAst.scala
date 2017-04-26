@@ -280,7 +280,11 @@ object TypedAst {
 
   case class Case(enum: Name.Ident, tag: Name.Ident, tpe: Type) extends TypedAst
 
-  sealed trait ConstraintParam
+  sealed trait ConstraintParam {
+    def sym: Symbol.VarSym
+
+    def tpe: Type
+  }
 
   object ConstraintParam {
 

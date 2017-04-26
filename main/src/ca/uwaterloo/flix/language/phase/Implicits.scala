@@ -20,7 +20,7 @@ import ca.uwaterloo.flix.api.Flix
 import ca.uwaterloo.flix.language.CompilationError
 import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
 import ca.uwaterloo.flix.language.ast.{Symbol, Type, TypedAst}
-import ca.uwaterloo.flix.util.{PrettyPrint, Validation}
+import ca.uwaterloo.flix.util.Validation
 import ca.uwaterloo.flix.util.Validation._
 import ca.uwaterloo.flix.util.collection.MultiMap
 
@@ -55,6 +55,14 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
   // TODO: Introduce an equivalance abstraction which allows *n* implicits to be equivalent with at most one explicitCanUnify.
 
+  /**
+    * TODO: Important idea: Allow explicit parameters to be annoted with ! to
+    * indicate that hthey may be unified with implicit variables. E.g.
+    *
+    * VarPointsToIn(!s2) :−
+    * CFG(!s1, !s2),
+    * VarPointsToOut(!s1).
+    */
 
   /**
     * Performs implicit resolution on the constraints in the given program.
@@ -71,24 +79,24 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   def implicify(s: TypedAst.Stratum): TypedAst.Stratum = TypedAst.Stratum(s.constraints.map(implicify))
 
   /**
-    * TODO: Important idea: Allow explicit parameters to be annoted with ! to
-    * indicate that hthey may be unified with implicit variables. E.g.
-    *
-    * VarPointsToIn(!s2) :−
-    * CFG(!s1, !s2),
-    * VarPointsToOut(!s1).
+    * Performs implicit resolution on the given constraint `s`.
     */
-
   def implicify(c: TypedAst.Constraint): TypedAst.Constraint = {
-    // A map from types to symbols of that type.
-    val type2sym = new MultiMap[Symbol.VarSym, Symbol.VarSym]
+    // Compute a map from types to variables.
+    val type2sym = new MultiMap[Type, Symbol.VarSym]
 
+    // Iterate through all constraint parameters (implicit and explicit).
+    for (cparam <- c.cparams) {
+      type2sym.put(cparam.tpe, cparam.sym)
+    }
+
+    println(type2sym)
 
     // An equivalence relation on implicit variable symbols that share the same type.
     val m = new MultiMap[Symbol.VarSym, Symbol.VarSym]
 
-    // TODO: Handle conflicts.
 
+    // TODO: Here we should iterate through the explicit CAN UNIF parameters...
     // Iterate through all *explicit* parameters and unify each explicit parameter with the implicit parameters from where it occurs.
     for (cparam <- c.cparams) {
       cparam match {
@@ -124,6 +132,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
       }
     }
 
+    // TODO: Handle conflicts.
     // TODO: Iterate through all symbols that do not belong to a class and unify them by type.
 
 
@@ -157,7 +166,6 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
           case AttributeMode.Implicit => sacc + ((sym, tpe))
           case AttributeMode.Explicit => sacc
         }
-          sacc + ((sym, tpe))
         case (sacc, _) => sacc // TODO: Decide if this needs to be recursive?
       }
     case TypedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) => implicits.toSet

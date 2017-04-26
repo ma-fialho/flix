@@ -1040,9 +1040,11 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
         }
 
       case ResolvedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) =>
+        val actualTypes = implicits.map(_.tvar)
+
         // TODO: Must type check the terms
         getTableSignature(sym, program) match {
-          case Ok(declaredTypes) => liftM(declaredTypes)
+          case Ok(declaredTypes) => unifyM(actualTypes, declaredTypes, loc)
           case Err(e) => failM(e)
         }
 
@@ -1064,9 +1066,11 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
         }
 
       case ResolvedAst.Predicate.Body.PositiveOverloaded(sym, terms, implicits, loc) =>
+        val actualTypes = implicits.map(_.tvar)
+
         // TODO: Must type check the terms
         getTableSignature(sym, program) match {
-          case Ok(declaredTypes) => liftM(declaredTypes)
+          case Ok(declaredTypes) => unifyM(actualTypes, declaredTypes, loc)
           case Err(e) => failM(e)
         }
 
