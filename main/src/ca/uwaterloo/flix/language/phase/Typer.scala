@@ -1041,12 +1041,16 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
         val actualTypes = implicits.map(_.tvar)
         val declaredTypes = getAttributeTypes(sym, program)
 
-        // TODO: Must type check the terms
-        unifyM(actualTypes, declaredTypes, loc)
+        for {
+          r <- unifyM(actualTypes, declaredTypes, loc)
+          _ <- seqM(terms.map(t => Expressions.infer(t, program)))
+        } yield r
 
       case ResolvedAst.Predicate.Head.Negative(sym, terms, loc) =>
         val declaredTypes = getAttributeTypes(sym, program)
         Terms.Head.typecheck(terms, declaredTypes, loc, program)
+
+      case ResolvedAst.Predicate.Head.NegativeOverloaded(sym, terms, implicits, loc) => ??? // TODO: To be removed
     }
 
     /**
@@ -1061,12 +1065,24 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
         val actualTypes = implicits.map(_.tvar)
         val declaredTypes = getAttributeTypes(sym, program)
 
-        // TODO: Must type check the terms
-        unifyM(actualTypes, declaredTypes, loc)
+        for {
+          r <- unifyM(actualTypes, declaredTypes, loc)
+          _ <- seqM(terms.map(t => Patterns.infer(t, program)))
+        } yield r
 
       case ResolvedAst.Predicate.Body.Negative(sym, terms, loc) =>
         val declaredTypes = getAttributeTypes(sym, program)
         Terms.Body.typecheck(terms, declaredTypes, loc, program)
+
+      case ResolvedAst.Predicate.Body.NegativeOverloaded(sym, terms, implicits, loc) =>
+        val actualTypes = implicits.map(_.tvar)
+        val declaredTypes = getAttributeTypes(sym, program)
+
+        for {
+          r <- unifyM(actualTypes, declaredTypes, loc)
+          _ <- seqM(terms.map(t => Patterns.infer(t, program)))
+        } yield r
+
 
       case ResolvedAst.Predicate.Body.Filter(sym, terms, loc) =>
         val defn = program.definitions(sym)
@@ -1105,6 +1121,8 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
       case ResolvedAst.Predicate.Head.Negative(sym, terms, loc) =>
         val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
         TypedAst.Predicate.Head.Negative(sym, ts, loc)
+
+      case ResolvedAst.Predicate.Head.NegativeOverloaded(sym, terms, implicits, loc) => ??? // TODO: To be removed.
     }
 
     /**
@@ -1123,6 +1141,8 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
       case ResolvedAst.Predicate.Body.Negative(sym, terms, loc) =>
         val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
         TypedAst.Predicate.Body.Negative(sym, ts, loc)
+
+      case ResolvedAst.Predicate.Body.NegativeOverloaded(sym, terms, implicits, loc) => ??? // TODO: To be removed.
 
       case ResolvedAst.Predicate.Body.Filter(sym, terms, loc) =>
         val defn = program.definitions(sym)
