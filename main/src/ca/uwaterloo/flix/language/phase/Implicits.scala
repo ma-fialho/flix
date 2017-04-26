@@ -90,8 +90,6 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
       type2sym.put(cparam.tpe, cparam.sym)
     }
 
-    println(type2sym)
-
     // An equivalence relation on implicit variable symbols that share the same type.
     val m = new MultiMap[Symbol.VarSym, Symbol.VarSym]
 

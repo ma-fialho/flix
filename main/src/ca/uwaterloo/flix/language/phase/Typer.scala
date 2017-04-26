@@ -1034,25 +1034,19 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
       case ResolvedAst.Predicate.Head.True(loc) => Unification.liftM(Nil)
       case ResolvedAst.Predicate.Head.False(loc) => Unification.liftM(Nil)
       case ResolvedAst.Predicate.Head.Positive(sym, terms, loc) =>
-        getTableSignature(sym, program) match {
-          case Ok(declaredTypes) => Terms.Head.typecheck(terms, declaredTypes, loc, program)
-          case Err(e) => failM(e)
-        }
+        val declaredTypes = getAttributeTypes(sym, program)
+        Terms.Head.typecheck(terms, declaredTypes, loc, program)
 
       case ResolvedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) =>
         val actualTypes = implicits.map(_.tvar)
+        val declaredTypes = getAttributeTypes(sym, program)
 
         // TODO: Must type check the terms
-        getTableSignature(sym, program) match {
-          case Ok(declaredTypes) => unifyM(actualTypes, declaredTypes, loc)
-          case Err(e) => failM(e)
-        }
+        unifyM(actualTypes, declaredTypes, loc)
 
       case ResolvedAst.Predicate.Head.Negative(sym, terms, loc) =>
-        getTableSignature(sym, program) match {
-          case Ok(declaredTypes) => Terms.Head.typecheck(terms, declaredTypes, loc, program)
-          case Err(e) => failM(e)
-        }
+        val declaredTypes = getAttributeTypes(sym, program)
+        Terms.Head.typecheck(terms, declaredTypes, loc, program)
     }
 
     /**
@@ -1060,25 +1054,19 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
       */
     def infer(body0: ResolvedAst.Predicate.Body, program: ResolvedAst.Program)(implicit genSym: GenSym): InferMonad[List[Type]] = body0 match {
       case ResolvedAst.Predicate.Body.Positive(sym, terms, loc) =>
-        getTableSignature(sym, program) match {
-          case Ok(declaredTypes) => Terms.Body.typecheck(terms, declaredTypes, loc, program)
-          case Err(e) => failM(e)
-        }
+        val declaredTypes = getAttributeTypes(sym, program)
+        Terms.Body.typecheck(terms, declaredTypes, loc, program)
 
       case ResolvedAst.Predicate.Body.PositiveOverloaded(sym, terms, implicits, loc) =>
         val actualTypes = implicits.map(_.tvar)
+        val declaredTypes = getAttributeTypes(sym, program)
 
         // TODO: Must type check the terms
-        getTableSignature(sym, program) match {
-          case Ok(declaredTypes) => unifyM(actualTypes, declaredTypes, loc)
-          case Err(e) => failM(e)
-        }
+        unifyM(actualTypes, declaredTypes, loc)
 
       case ResolvedAst.Predicate.Body.Negative(sym, terms, loc) =>
-        getTableSignature(sym, program) match {
-          case Ok(declaredTypes) => Terms.Body.typecheck(terms, declaredTypes, loc, program)
-          case Err(e) => failM(e)
-        }
+        val declaredTypes = getAttributeTypes(sym, program)
+        Terms.Body.typecheck(terms, declaredTypes, loc, program)
 
       case ResolvedAst.Predicate.Body.Filter(sym, terms, loc) =>
         val defn = program.definitions(sym)
@@ -1110,7 +1098,7 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
         TypedAst.Predicate.Head.Positive(sym, ts, loc)
 
       case ResolvedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) =>
-        val is = implicits zip getTableSignature(sym, program).get
+        val is = implicits zip getAttributeTypes(sym, program)
         val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
         TypedAst.Predicate.Head.PositiveOverloaded(sym, ts, is, loc)
 
@@ -1128,7 +1116,7 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
         TypedAst.Predicate.Body.Positive(sym, ts, loc)
 
       case ResolvedAst.Predicate.Body.PositiveOverloaded(sym, terms, implicits, loc) =>
-        val is = implicits zip getTableSignature(sym, program).get
+        val is = implicits zip getAttributeTypes(sym, program)
         val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
         TypedAst.Predicate.Body.PositiveOverloaded(sym, ts, is, loc)
 
@@ -1181,11 +1169,10 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
   /**
     * Returns the declared types of the terms of the given fully-qualified table name `qname`.
     */
-  // TODO: Remove Result type.
-  def getTableSignature(sym: Symbol.TableSym, program: ResolvedAst.Program): Result[List[Type], TypeError] = {
+  def getAttributeTypes(sym: Symbol.TableSym, program: ResolvedAst.Program): List[Type] = {
     program.tables(sym) match {
-      case ResolvedAst.Table.Relation(_, _, attr, _) => Ok(attr.map(_.tpe))
-      case ResolvedAst.Table.Lattice(_, _, keys, value, _) => Ok(keys.map(_.tpe) ::: value.tpe :: Nil)
+      case ResolvedAst.Table.Relation(_, _, attr, _) => attr.map(_.tpe)
+      case ResolvedAst.Table.Lattice(_, _, keys, value, _) => keys.map(_.tpe) ::: value.tpe :: Nil
     }
   }
 
