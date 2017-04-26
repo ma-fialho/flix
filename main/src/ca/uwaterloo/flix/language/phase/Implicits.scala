@@ -19,6 +19,7 @@ package ca.uwaterloo.flix.language.phase
 import ca.uwaterloo.flix.api.Flix
 import ca.uwaterloo.flix.language.CompilationError
 import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
+import ca.uwaterloo.flix.language.ast.TypedAst.Predicate
 import ca.uwaterloo.flix.language.ast.{Symbol, Type, TypedAst}
 import ca.uwaterloo.flix.util.Validation
 import ca.uwaterloo.flix.util.Validation._
@@ -78,17 +79,18 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     */
   def implicify(s: TypedAst.Stratum): TypedAst.Stratum = TypedAst.Stratum(s.constraints.map(implicify))
 
+  // TODO
+  def occurs(explicitSym: Symbol.VarSym, head: Predicate.Head): Boolean = ???
+
+  // TODO
+  def occurs(explicitSym: Symbol.VarSym, head: Predicate.Body): Boolean = ???
+
   /**
     * Performs implicit resolution on the given constraint `s`.
     */
   def implicify(c: TypedAst.Constraint): TypedAst.Constraint = {
-    // Compute a map from types to variables.
-    val type2sym = new MultiMap[Type, Symbol.VarSym]
-
-    // Iterate through all constraint parameters (implicit and explicit).
-    for (cparam <- c.cparams) {
-      type2sym.put(cparam.tpe, cparam.sym)
-    }
+    // A map from types to symbols.
+    val type2sym = getType2Symbols(c)
 
     // An equivalence relation on implicit variable symbols that share the same type.
     val m = new MultiMap[Symbol.VarSym, Symbol.VarSym]
@@ -99,20 +101,24 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
       m.put(explicitSym, explicitSym)
 
-      val implicitsParams = implicitParamsOf(c.head)
-      for ((implicitSym, implicitType) <- implicitsParams) {
-        if (explicitType == implicitType) {
-          m.put(explicitSym, implicitSym)
+      if (occurs(explicitSym, c.head)) {
+        val implicitsParams = implicitParamsOf(c.head)
+        for ((implicitSym, implicitType) <- implicitsParams) {
+          if (explicitType == implicitType) {
+            m.put(explicitSym, implicitSym)
+          }
         }
       }
 
       for (b <- c.body) {
         // The explicit variable `sym` appears explicitly in `b`.
         // Make it equivalent to the appropriate implicit variable in `b`.
-        val implicitsParams = implicitParamsOf(b)
-        for ((implicitSym, implicitType) <- implicitsParams) {
-          if (explicitType == implicitType) {
-            m.put(explicitSym, implicitSym)
+        if (occurs(explicitSym, b)) {
+          val implicitsParams = implicitParamsOf(b)
+          for ((implicitSym, implicitType) <- implicitsParams) {
+            if (explicitType == implicitType) {
+              m.put(explicitSym, implicitSym)
+            }
           }
         }
       }
@@ -138,6 +144,17 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
     // Apply the substitution to the constraint.
     replace(c, substitution)
+  }
+
+  /**
+    * Returns a map from types to variable symbols for the given constraint `c`.
+    */
+  def getType2Symbols(c: TypedAst.Constraint): MultiMap[Type, Symbol.VarSym] = {
+    val m = new MultiMap[Type, Symbol.VarSym]
+    for (cparam <- c.cparams) {
+      m.put(cparam.tpe, cparam.sym)
+    }
+    m
   }
 
   /**
