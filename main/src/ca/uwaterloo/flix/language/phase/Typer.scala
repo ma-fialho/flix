@@ -72,6 +72,7 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
         case ResolvedAst.Constraint(cparams0, head0, body0, loc) =>
 
           // Infer the types of head and body predicates.
+          // TODO: Why even return some types here if they are not used?
           val result = for {
             headType <- Predicates.infer(head0, program)
             bodyTypes <- seqM(body0.map(b => Predicates.infer(b, program)))
@@ -1037,6 +1038,14 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
           case Ok(declaredTypes) => Terms.Head.typecheck(terms, declaredTypes, loc, program)
           case Err(e) => failM(e)
         }
+
+      case ResolvedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) =>
+        // TODO: Must type check the terms
+        getTableSignature(sym, program) match {
+          case Ok(declaredTypes) => liftM(declaredTypes)
+          case Err(e) => failM(e)
+        }
+
       case ResolvedAst.Predicate.Head.Negative(sym, terms, loc) =>
         getTableSignature(sym, program) match {
           case Ok(declaredTypes) => Terms.Head.typecheck(terms, declaredTypes, loc, program)
@@ -1053,11 +1062,20 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
           case Ok(declaredTypes) => Terms.Body.typecheck(terms, declaredTypes, loc, program)
           case Err(e) => failM(e)
         }
+
+      case ResolvedAst.Predicate.Body.PositiveOverloaded(sym, terms, implicits, loc) =>
+        // TODO: Must type check the terms
+        getTableSignature(sym, program) match {
+          case Ok(declaredTypes) => liftM(declaredTypes)
+          case Err(e) => failM(e)
+        }
+
       case ResolvedAst.Predicate.Body.Negative(sym, terms, loc) =>
         getTableSignature(sym, program) match {
           case Ok(declaredTypes) => Terms.Body.typecheck(terms, declaredTypes, loc, program)
           case Err(e) => failM(e)
         }
+
       case ResolvedAst.Predicate.Body.Filter(sym, terms, loc) =>
         val defn = program.definitions(sym)
         val expectedTypes = defn.fparams.map(_.tpe)
@@ -1080,10 +1098,18 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
       */
     def reassemble(head0: ResolvedAst.Predicate.Head, program: ResolvedAst.Program, subst0: Substitution): TypedAst.Predicate.Head = head0 match {
       case ResolvedAst.Predicate.Head.True(loc) => TypedAst.Predicate.Head.True(loc)
+
       case ResolvedAst.Predicate.Head.False(loc) => TypedAst.Predicate.Head.False(loc)
+
       case ResolvedAst.Predicate.Head.Positive(sym, terms, loc) =>
         val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
         TypedAst.Predicate.Head.Positive(sym, ts, loc)
+
+      case ResolvedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) =>
+        val is = implicits zip getTableSignature(sym, program).get
+        val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
+        TypedAst.Predicate.Head.PositiveOverloaded(sym, ts, is, loc)
+
       case ResolvedAst.Predicate.Head.Negative(sym, terms, loc) =>
         val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
         TypedAst.Predicate.Head.Negative(sym, ts, loc)
@@ -1096,13 +1122,21 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
       case ResolvedAst.Predicate.Body.Positive(sym, terms, loc) =>
         val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
         TypedAst.Predicate.Body.Positive(sym, ts, loc)
+
+      case ResolvedAst.Predicate.Body.PositiveOverloaded(sym, terms, implicits, loc) =>
+        val is = implicits zip getTableSignature(sym, program).get
+        val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
+        TypedAst.Predicate.Body.PositiveOverloaded(sym, ts, is, loc)
+
       case ResolvedAst.Predicate.Body.Negative(sym, terms, loc) =>
         val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
         TypedAst.Predicate.Body.Negative(sym, ts, loc)
+
       case ResolvedAst.Predicate.Body.Filter(sym, terms, loc) =>
         val defn = program.definitions(sym)
         val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
         TypedAst.Predicate.Body.Filter(defn.sym, ts, loc)
+
       case ResolvedAst.Predicate.Body.Loop(pat, term, loc) =>
         // TODO: Assumes that the pattern is a single variable.
         val p = pat.asInstanceOf[ResolvedAst.Pattern.Var]
@@ -1143,6 +1177,7 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
   /**
     * Returns the declared types of the terms of the given fully-qualified table name `qname`.
     */
+  // TODO: Remove Result type.
   def getTableSignature(sym: Symbol.TableSym, program: ResolvedAst.Program): Result[List[Type], TypeError] = {
     program.tables(sym) match {
       case ResolvedAst.Table.Relation(_, _, attr, _) => Ok(attr.map(_.tpe))

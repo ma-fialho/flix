@@ -38,8 +38,92 @@ object PrettyPrinter {
         fmtExp(defn, vt)
         vt << Dedent << NewLine << NewLine
       }
+
+      for (strata <- root.strata) {
+        for (constraint <- strata.constraints) {
+          fmtConstraint(constraint, vt)
+        }
+      }
+
       vt
     }
+
+    def fmtConstraint(c: SimplifiedAst.Constraint, vt: VirtualTerminal): VirtualTerminal = {
+      fmtHeadPredicate(c.head, vt)
+
+      if (c.body.nonEmpty) {
+        vt << " :- "
+        for (b <- c.body) {
+          fmtBodyPredicate(b, vt)
+          vt << ", "
+        }
+      }
+
+      vt << "." << NewLine << NewLine
+    }
+
+    def fmtHeadPredicate(h: SimplifiedAst.Predicate.Head, vt: VirtualTerminal): VirtualTerminal = {
+      h match {
+        case SimplifiedAst.Predicate.Head.True(loc) =>
+          vt << "true"
+        case SimplifiedAst.Predicate.Head.False(loc) =>
+          vt << "false"
+        case SimplifiedAst.Predicate.Head.Positive(sym, terms, loc) =>
+          fmtSym(sym, vt)
+          vt << "("
+          for (t <- terms) {
+            fmtHeadTerm(t, vt)
+            vt << ", "
+          }
+          vt << ")"
+        case SimplifiedAst.Predicate.Head.Negative(sym, terms, loc) => ???
+      }
+      vt
+    }
+
+    def fmtBodyPredicate(b: SimplifiedAst.Predicate.Body, vt: VirtualTerminal): VirtualTerminal = {
+      b match {
+        case SimplifiedAst.Predicate.Body.Positive(sym, terms, loc) =>
+          fmtSym(sym, vt)
+
+          vt << "("
+          for (t <- terms) {
+            fmtBodyTerm(t, vt)
+            vt << ", "
+          }
+          vt << ")"
+
+        case SimplifiedAst.Predicate.Body.Negative(sym, terms, loc) =>
+        case SimplifiedAst.Predicate.Body.Filter(sym, terms, loc) => ???
+        case SimplifiedAst.Predicate.Body.Loop(sym, terms, loc) => ???
+      }
+
+      vt
+    }
+
+    def fmtHeadTerm(t: SimplifiedAst.Term.Head, vt: VirtualTerminal): VirtualTerminal = {
+      t match {
+        case SimplifiedAst.Term.Head.Var(sym, tpe, loc) =>
+          fmtSym(sym, vt)
+        case SimplifiedAst.Term.Head.Lit(lit, tpe, loc) =>
+          fmtExp(lit, vt)
+        case SimplifiedAst.Term.Head.App(sym, args, tpe, loc) => ???
+      }
+      vt
+    }
+
+    def fmtBodyTerm(t: SimplifiedAst.Term.Body, vt: VirtualTerminal): VirtualTerminal = {
+      t match {
+        case SimplifiedAst.Term.Body.Wild(tpe, loc) => ???
+        case SimplifiedAst.Term.Body.Var(sym, tpe, loc) =>
+          fmtSym(sym, vt)
+        case SimplifiedAst.Term.Body.Lit(exp, tpe, loc) =>
+          fmtExp(exp, vt)
+        case SimplifiedAst.Term.Body.Pat(pat, tpe, loc) => ???
+      }
+      vt
+    }
+
 
     def fmtExp(defn: Definition.Constant, vt: VirtualTerminal): Unit = {
       fmtExp(defn.exp, vt)
@@ -254,6 +338,10 @@ object PrettyPrinter {
 
     def fmtSym(sym: Symbol.VarSym, vt: VirtualTerminal): Unit = {
       vt << Cyan(sym.toString)
+    }
+
+    def fmtSym(sym: Symbol.TableSym, vt: VirtualTerminal): Unit = {
+      vt << Blue(sym.toString)
     }
 
     def fmtUnaryOp(op: UnaryOperator, vt: VirtualTerminal): Unit = op match {

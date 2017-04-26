@@ -20,7 +20,7 @@ import ca.uwaterloo.flix.api.Flix
 import ca.uwaterloo.flix.language.CompilationError
 import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
 import ca.uwaterloo.flix.language.ast.{Symbol, Type, TypedAst}
-import ca.uwaterloo.flix.util.Validation
+import ca.uwaterloo.flix.util.{PrettyPrint, Validation}
 import ca.uwaterloo.flix.util.Validation._
 import ca.uwaterloo.flix.util.collection.MultiMap
 
@@ -48,7 +48,12 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   // 2. preservers rule safety. (no unbound head variables).
   // 3. Unambigious / deterministic.
   // 4. (Optional) disallow a single occurence of an implicit parameter? (Perhaps not, after all we can use relevance types for that).
+  //
+  // In Scala an implicit can be ambiguios, what does it mean here?
+  //
 
+
+  // TODO: Introduce an equivalance abstraction which allows *n* implicits to be equivalent with at most one explicitCanUnify.
 
 
   /**
@@ -56,7 +61,8 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     */
   def run(root: TypedAst.Root)(implicit flix: Flix): Validation[TypedAst.Root, CompilationError] = {
     val strata = root.strata.map(implicify)
-    root.copy(strata = strata).toSuccess
+    val result = root.copy(strata = strata)
+    result.toSuccess
   }
 
   /**
@@ -65,24 +71,61 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   def implicify(s: TypedAst.Stratum): TypedAst.Stratum = TypedAst.Stratum(s.constraints.map(implicify))
 
   /**
-    * Performs implicit resolution on the given constraint `c`.
+    * TODO: Important idea: Allow explicit parameters to be annoted with ! to
+    * indicate that hthey may be unified with implicit variables. E.g.
+    *
+    * VarPointsToIn(!s2) :−
+    * CFG(!s1, !s2),
+    * VarPointsToOut(!s1).
     */
-  def implicify(c: TypedAst.Constraint): TypedAst.Constraint = {
-    // An equivalence relation on implicit variable symbols that share the same type.
-    val m = new MultiMap[Type, Symbol.VarSym]
 
-    // Iterate through every constraint parameter to compute equivalences for each implicit parameter.
+  def implicify(c: TypedAst.Constraint): TypedAst.Constraint = {
+    // A map from types to symbols of that type.
+    val type2sym = new MultiMap[Symbol.VarSym, Symbol.VarSym]
+
+
+    // An equivalence relation on implicit variable symbols that share the same type.
+    val m = new MultiMap[Symbol.VarSym, Symbol.VarSym]
+
+    // TODO: Handle conflicts.
+
+    // Iterate through all *explicit* parameters and unify each explicit parameter with the implicit parameters from where it occurs.
     for (cparam <- c.cparams) {
       cparam match {
         case TypedAst.ConstraintParam.HeadParam(sym, tpe, loc) =>
         // case 1: A head parameter is never implicit.
         case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) =>
           // case 2: A rule parameter may be implicit.
-          if (sym.mode == AttributeMode.Implicit) {
-            m.put(tpe, sym)
+          if (sym.mode == AttributeMode.Explicit) {
+            val explicitSym = sym
+
+            // reflexivity
+            m.put(explicitSym, explicitSym)
+
+            val implicitsParams = implicitParamsOf(c.head)
+            for ((implicitSym, implicitType) <- implicitsParams) {
+              if (tpe == implicitType) {
+                m.put(explicitSym, implicitSym)
+              }
+            }
+
+            for (b <- c.body) {
+              // The explicit variable `sym` appears explicitly in `b`.
+              // Make it equivalent to the appropriate implicit variable in `b`.
+              val implicitsParams = implicitParamsOf(b)
+              for ((implicitSym, implicitType) <- implicitsParams) {
+                if (tpe == implicitType) {
+                  m.put(explicitSym, implicitSym)
+                }
+              }
+            }
+
           }
       }
     }
+
+    // TODO: Iterate through all symbols that do not belong to a class and unify them by type.
+
 
     // Retrieve the equivalence classes.
     val equivalences = m.values
@@ -95,9 +138,51 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
       case (macc, subst) => macc ++ subst
     }
 
+    println(substitution)
+
     // Apply the substitution to the constraint.
     replace(c, substitution)
   }
+
+
+  /**
+    * Returns the implicit parameters of the given head predicate `h0`.
+    */
+  def implicitParamsOf(h0: TypedAst.Predicate.Head): Set[(Symbol.VarSym, Type)] = h0 match {
+    case TypedAst.Predicate.Head.True(loc) => Set.empty
+    case TypedAst.Predicate.Head.False(loc) => Set.empty
+    case TypedAst.Predicate.Head.Positive(_, terms, loc) =>
+      terms.foldLeft(Set.empty[(Symbol.VarSym, Type)]) {
+        case (sacc, TypedAst.Expression.Var(sym, tpe, _)) => sym.mode match {
+          case AttributeMode.Implicit => sacc + ((sym, tpe))
+          case AttributeMode.Explicit => sacc
+        }
+          sacc + ((sym, tpe))
+        case (sacc, _) => sacc // TODO: Decide if this needs to be recursive?
+      }
+    case TypedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) => implicits.toSet
+    case _ => ??? // TODO: remove negative head predicates.
+  }
+
+  /**
+    * Returns the implicit parameters of the given body predicate `b0`.
+    */
+  def implicitParamsOf(b0: TypedAst.Predicate.Body): Set[(Symbol.VarSym, Type)] = b0 match {
+    case TypedAst.Predicate.Body.Positive(_, terms, _) =>
+      terms.foldLeft(Set.empty[(Symbol.VarSym, Type)]) {
+        case (sacc, TypedAst.Pattern.Var(sym, tpe, loc)) => sym.mode match {
+          case AttributeMode.Implicit => sacc + ((sym, tpe))
+          case AttributeMode.Explicit => sacc
+        }
+        case (sacc, _) => sacc // TODO: Decide if this needs to be recursive?
+      }
+    case TypedAst.Predicate.Body.PositiveOverloaded(_, _, implicits, _) => implicits.toSet
+    case TypedAst.Predicate.Body.Negative(_, terms, _) => ???
+    case TypedAst.Predicate.Body.NegativeOverloaded(_, _, _) => ???
+    case TypedAst.Predicate.Body.Filter(sym, terms, loc) => Set.empty // TODO: Correct?
+    case TypedAst.Predicate.Body.Loop(sym, term, loc) => Set.empty // TODO: Correct?
+  }
+
 
   /**
     * Picks a representative from the the set `s` and returns a substitution map
@@ -144,6 +229,9 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     case TypedAst.Predicate.Head.Positive(sym, terms, loc) =>
       val ts = terms.map(t => replace(t, subst))
       TypedAst.Predicate.Head.Positive(sym, ts, loc)
+    case TypedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) =>
+      val ts = implicits2exps(implicits, subst)
+      TypedAst.Predicate.Head.Positive(sym, ts, loc)
     case TypedAst.Predicate.Head.Negative(sym, terms, loc) =>
       val ts = terms.map(t => replace(t, subst))
       TypedAst.Predicate.Head.Negative(sym, ts, loc)
@@ -156,11 +244,20 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     case TypedAst.Predicate.Body.Positive(sym, terms, loc) =>
       val ts = terms.map(t => replace(t, subst))
       TypedAst.Predicate.Body.Positive(sym, ts, loc)
+
+    case TypedAst.Predicate.Body.PositiveOverloaded(sym, terms, implicits, loc) =>
+      val ts = implicits2pats(implicits, subst)
+      TypedAst.Predicate.Body.Positive(sym, ts, loc)
+
     case TypedAst.Predicate.Body.Negative(sym, terms, loc) =>
       val ts = terms.map(t => replace(t, subst))
       TypedAst.Predicate.Body.Negative(sym, ts, loc)
+
+
     // TODO: How do implicits interact with filter and loop predicates?
+
     case TypedAst.Predicate.Body.Filter(sym, terms, loc) => b
+
     case TypedAst.Predicate.Body.Loop(sym, term, loc) => b
   }
 
@@ -188,6 +285,26 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
       case Some(newSym) => TypedAst.Pattern.Var(newSym, tpe, loc)
     }
     case _ => p
+  }
+
+  /**
+    * Returns the given list of implicits variables as a list of expressions after applying the substitution `subst`.
+    */
+  def implicits2exps(implicits: List[(Symbol.VarSym, Type)], subst: Map[Symbol.VarSym, Symbol.VarSym]): List[TypedAst.Expression] = implicits.map {
+    case (varSym, tpe) => subst.get(varSym) match {
+      case None => TypedAst.Expression.Var(varSym, tpe, varSym.loc)
+      case Some(newSym) => TypedAst.Expression.Var(newSym, tpe, varSym.loc)
+    }
+  }
+
+  /**
+    * Returns the given list of implicits variables as a list of patterns after applying the substitution `subst`.
+    */
+  def implicits2pats(implicits: List[(Symbol.VarSym, Type)], subst: Map[Symbol.VarSym, Symbol.VarSym]): List[TypedAst.Pattern] = implicits.map {
+    case (varSym, tpe) => subst.get(varSym) match {
+      case None => TypedAst.Pattern.Var(varSym, tpe, varSym.loc)
+      case Some(newSym) => TypedAst.Pattern.Var(newSym, tpe, varSym.loc)
+    }
   }
 
 }

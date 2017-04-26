@@ -250,6 +250,8 @@ object TypedAst {
 
       case class Positive(sym: Symbol.TableSym, terms: List[TypedAst.Expression], loc: SourceLocation) extends TypedAst.Predicate.Head
 
+      case class PositiveOverloaded(sym: Symbol.TableSym, terms: List[TypedAst.Expression], implicits: List[(Symbol.VarSym, Type)], loc: SourceLocation) extends TypedAst.Predicate.Head
+
       case class Negative(sym: Symbol.TableSym, terms: List[TypedAst.Expression], loc: SourceLocation) extends TypedAst.Predicate.Head
 
     }
@@ -260,7 +262,11 @@ object TypedAst {
 
       case class Positive(sym: Symbol.TableSym, terms: List[TypedAst.Pattern], loc: SourceLocation) extends TypedAst.Predicate.Body
 
+      case class PositiveOverloaded(sym: Symbol.TableSym, terms: List[TypedAst.Pattern], implicits: List[(Symbol.VarSym, Type)], loc: SourceLocation) extends TypedAst.Predicate.Body
+
       case class Negative(sym: Symbol.TableSym, terms: List[TypedAst.Pattern], loc: SourceLocation) extends TypedAst.Predicate.Body
+
+      case class NegativeOverloaded(sym: Symbol.TableSym, terms: List[TypedAst.Pattern], loc: SourceLocation) extends TypedAst.Predicate.Body
 
       case class Filter(sym: Symbol.DefnSym, terms: List[TypedAst.Expression], loc: SourceLocation) extends TypedAst.Predicate.Body
 

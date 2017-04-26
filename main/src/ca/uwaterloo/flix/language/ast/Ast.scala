@@ -149,10 +149,17 @@ object Ast {
 
   object AttributeMode {
 
+    // TODO: Update doc
+
     /**
       * An explicit attribute.
       */
     case object Explicit extends AttributeMode
+
+    /**
+      * An explicit attribute.
+      */
+    case object ExplicitCanUnify extends AttributeMode
 
     /**
       * An implicit attribute.
