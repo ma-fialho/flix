@@ -93,41 +93,30 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     // An equivalence relation on implicit variable symbols that share the same type.
     val m = new MultiMap[Symbol.VarSym, Symbol.VarSym]
 
-
     // TODO: Here we should iterate through the explicit CAN UNIF parameters...
     // Iterate through all *explicit* parameters and unify each explicit parameter with the implicit parameters from where it occurs.
-    for (cparam <- c.cparams) {
-      cparam match {
-        case TypedAst.ConstraintParam.HeadParam(sym, tpe, loc) =>
-        // case 1: A head parameter is never implicit.
-        case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) =>
-          // case 2: A rule parameter may be implicit.
-          if (sym.mode == AttributeMode.Explicit) {
-            val explicitSym = sym
+    for ((explicitSym, explicitType) <- explicitUnifiableParamsOf(c)) {
 
-            // reflexivity
-            m.put(explicitSym, explicitSym)
+      m.put(explicitSym, explicitSym)
 
-            val implicitsParams = implicitParamsOf(c.head)
-            for ((implicitSym, implicitType) <- implicitsParams) {
-              if (tpe == implicitType) {
-                m.put(explicitSym, implicitSym)
-              }
-            }
-
-            for (b <- c.body) {
-              // The explicit variable `sym` appears explicitly in `b`.
-              // Make it equivalent to the appropriate implicit variable in `b`.
-              val implicitsParams = implicitParamsOf(b)
-              for ((implicitSym, implicitType) <- implicitsParams) {
-                if (tpe == implicitType) {
-                  m.put(explicitSym, implicitSym)
-                }
-              }
-            }
-
-          }
+      val implicitsParams = implicitParamsOf(c.head)
+      for ((implicitSym, implicitType) <- implicitsParams) {
+        if (explicitType == implicitType) {
+          m.put(explicitSym, implicitSym)
+        }
       }
+
+      for (b <- c.body) {
+        // The explicit variable `sym` appears explicitly in `b`.
+        // Make it equivalent to the appropriate implicit variable in `b`.
+        val implicitsParams = implicitParamsOf(b)
+        for ((implicitSym, implicitType) <- implicitsParams) {
+          if (explicitType == implicitType) {
+            m.put(explicitSym, implicitSym)
+          }
+        }
+      }
+
     }
 
     // TODO: Handle conflicts.
@@ -151,6 +140,12 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     replace(c, substitution)
   }
 
+  /**
+    * Returns the unifiable explicit parameters along with their types of the given constraint `c`.
+    */
+  def explicitUnifiableParamsOf(c: TypedAst.Constraint): List[(Symbol.VarSym, Type)] = c.cparams.collect {
+    case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) if sym.mode == AttributeMode.Explicit => (sym, tpe)
+  }
 
   /**
     * Returns the implicit parameters of the given head predicate `h0`.
