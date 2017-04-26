@@ -33,10 +33,22 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   //
   // LocalVar(r, sum(?ctx, ?stm, v1, v2)) :- AddStm(r, x, y), LocalVar(x, v1), LocalVar(y, v2).
   //
+  // We can, but that is an extension.
+  //
 
   // TODO: We have to be careful with implicit variables not bound in the body. For example, this rule is unsafe:
   //
   // R(x, ?y) :- A(x) // where A does not define an implicit y.
+  //
+  // This goes back to the notion of safe rules.
+  //
+  // Essentially we want implicits to have 2-3 properties:
+  //
+  // 1. Preserves type safety.
+  // 2. preservers rule safety. (no unbound head variables).
+  // 3. Unambigious / deterministic.
+  // 4. (Optional) disallow a single occurence of an implicit parameter? (Perhaps not, after all we can use relevance types for that).
+
 
 
   /**
