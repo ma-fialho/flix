@@ -19,51 +19,49 @@ package ca.uwaterloo.flix.language.phase
 import ca.uwaterloo.flix.api.Flix
 import ca.uwaterloo.flix.language.CompilationError
 import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
-import ca.uwaterloo.flix.language.ast.TypedAst.Predicate
 import ca.uwaterloo.flix.language.ast.{Symbol, Type, TypedAst}
 import ca.uwaterloo.flix.util.Validation
 import ca.uwaterloo.flix.util.Validation._
 import ca.uwaterloo.flix.util.collection.MultiMap
 
+// TODO: Do we want to allow explicit implicit parameters, e.g.:
+//
+// LocalVar(r, sum(?ctx, ?stm, v1, v2)) :- AddStm(r, x, y), LocalVar(x, v1), LocalVar(y, v2).
+//
+// We can, but that is an extension.
+//
+
+// TODO: We have to be careful with implicit variables not bound in the body. For example, this rule is unsafe:
+//
+// R(x, ?y) :- A(x) // where A does not define an implicit y.
+//
+// This goes back to the notion of safe rules.
+//
+// Essentially we want implicits to have 2-3 properties:
+//
+// 1. Preserves type safety.
+// 2. preservers rule safety. (no unbound head variables).
+// 3. Unambigious / deterministic.
+// 4. (Optional) disallow a single occurence of an implicit parameter? (Perhaps not, after all we can use relevance types for that).
+//
+// In Scala an implicit can be ambiguios, what does it mean here?
+//
+
+// TODO: Introduce an equivalance abstraction which allows *n* implicits to be equivalent with at most one explicitCanUnify.
+
+/**
+  * TODO: Important idea: Allow explicit parameters to be annoted with ! to
+  * indicate that hthey may be unified with implicit variables. E.g.
+  *
+  * VarPointsToIn(!s2) :−
+  * CFG(!s1, !s2),
+  * VarPointsToOut(!s1).
+  */
+
 /**
   * Computes equivalences of implicit parameters in constraints.
   */
 object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
-
-  // TODO: Do we want to allow explicit implicit parameters, e.g.:
-  //
-  // LocalVar(r, sum(?ctx, ?stm, v1, v2)) :- AddStm(r, x, y), LocalVar(x, v1), LocalVar(y, v2).
-  //
-  // We can, but that is an extension.
-  //
-
-  // TODO: We have to be careful with implicit variables not bound in the body. For example, this rule is unsafe:
-  //
-  // R(x, ?y) :- A(x) // where A does not define an implicit y.
-  //
-  // This goes back to the notion of safe rules.
-  //
-  // Essentially we want implicits to have 2-3 properties:
-  //
-  // 1. Preserves type safety.
-  // 2. preservers rule safety. (no unbound head variables).
-  // 3. Unambigious / deterministic.
-  // 4. (Optional) disallow a single occurence of an implicit parameter? (Perhaps not, after all we can use relevance types for that).
-  //
-  // In Scala an implicit can be ambiguios, what does it mean here?
-  //
-
-
-  // TODO: Introduce an equivalance abstraction which allows *n* implicits to be equivalent with at most one explicitCanUnify.
-
-  /**
-    * TODO: Important idea: Allow explicit parameters to be annoted with ! to
-    * indicate that hthey may be unified with implicit variables. E.g.
-    *
-    * VarPointsToIn(!s2) :−
-    * CFG(!s1, !s2),
-    * VarPointsToOut(!s1).
-    */
 
   /**
     * Performs implicit resolution on the constraints in the given program.
@@ -78,12 +76,6 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     * Performs implicit resolution on the given stratum `s`.
     */
   def implicify(s: TypedAst.Stratum): TypedAst.Stratum = TypedAst.Stratum(s.constraints.map(implicify))
-
-  // TODO
-  def occurs(explicitSym: Symbol.VarSym, head: Predicate.Head): Boolean = ???
-
-  // TODO
-  def occurs(explicitSym: Symbol.VarSym, head: Predicate.Body): Boolean = ???
 
   /**
     * Performs implicit resolution on the given constraint `s`.
@@ -144,6 +136,35 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
     // Apply the substitution to the constraint.
     replace(c, substitution)
+  }
+
+  /**
+    * Returns `true` iff the given `explicitSym` occurs in the given head predicate `h0`.
+    */
+  def occurs(explicitSym: Symbol.VarSym, h0: TypedAst.Predicate.Head): Boolean = h0 match {
+    case TypedAst.Predicate.Head.True(loc) => false
+    case TypedAst.Predicate.Head.False(loc) => false
+    case TypedAst.Predicate.Head.Positive(sym, terms, loc) => false // TODO: Is it right to return false here?
+    case TypedAst.Predicate.Head.PositiveOverloaded(_, terms, implicits, loc) => terms.exists {
+      // TODO: Recurse?
+      case TypedAst.Expression.Var(sym, tpe, _) => sym == explicitSym
+      case _ => false
+    }
+    case TypedAst.Predicate.Head.Negative(sym, terms, loc) => false // TODO: Remove
+  }
+
+  /**
+    * Returns `true` iff the given `explicitSym` occurs in the given body predicate `b0`.
+    */
+  def occurs(explicitSym: Symbol.VarSym, b0: TypedAst.Predicate.Body): Boolean = b0 match {
+    case TypedAst.Predicate.Body.Positive(sym, terms ,loc) => false // TODO: Is it right to return false here?
+    case TypedAst.Predicate.Body.PositiveOverloaded(_, terms, implicits, loc) => terms.exists {
+      // TODO: Recurse?
+      case TypedAst.Pattern.Var(sym, tpe, _) => sym == explicitSym
+      case _ => false
+    }
+    case TypedAst.Predicate.Body.Negative(sym, terms ,loc) => false // TODO: Is it right to return false here?
+    case TypedAst.Predicate.Body.NegativeOverloaded(_, implicits, loc) => ??? // TODO
   }
 
   /**
