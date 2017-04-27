@@ -48,6 +48,8 @@ import ca.uwaterloo.flix.util.collection.MultiMap
 //    3. Two distinct explicit variables should never be equivalent.
 //    4. Unique translation.
 
+// TODO: Rename Ambiguous table to Overloaded? or something or other?
+
 /**
   * Computes equivalences of implicit parameters in constraints.
   */
@@ -217,7 +219,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
           case AttributeMode.Implicit => sacc + ((sym, tpe))
           case AttributeMode.Explicit => sacc
         }
-        case (sacc, _) => sacc // NB: *If* we allow user-written implicit parameters ?x then we must traverse the expression.
+        case (sacc, _) => sacc // NB: *If* we allow user-written implicit parameters ?x then we must traverse the pattern.
       }
     case TypedAst.Predicate.Body.Ambiguous(_, _, _, implicits, _) => implicits.toSet
     case TypedAst.Predicate.Body.Filter(sym, terms, loc) => Set.empty // As above.
@@ -287,41 +289,35 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
       val ts = implicits2pats(implicits, subst)
       TypedAst.Predicate.Body.Table(sym, polarity, ts, loc)
 
-    // TODO: How do implicits interact with filter and loop predicates?
+    case TypedAst.Predicate.Body.Filter(sym, terms, loc) => b // NB: *If* we allow user-written implicit parameters ?x then we must traverse the pattern.
 
-    case TypedAst.Predicate.Body.Filter(sym, terms, loc) => b
-
-    case TypedAst.Predicate.Body.Loop(sym, term, loc) => b
+    case TypedAst.Predicate.Body.Loop(sym, term, loc) => b // NB: *If* we allow user-written implicit parameters ?x then we must traverse the pattern.
   }
 
   /**
-    * Applies given substitution map `subst` to every parameter in the given expression `e`.
-    *
-    * NB: Implicit parameters always occur at the top-level and so this is the only place renaming has to occur.
+    * Applies the given substitution map `subst` to every parameter in the given expression `e`.
     */
   def replace(e: TypedAst.Expression, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Expression = e match {
     case TypedAst.Expression.Var(sym, tpe, loc) => subst.get(sym) match {
       case None => TypedAst.Expression.Var(sym, tpe, loc)
       case Some(newSym) => TypedAst.Expression.Var(newSym, tpe, loc)
     }
-    case _ => e
+    case _ => e // NB: *If* we allow user-written implicit parameters then this must traverse the expression.
   }
 
   /**
     * Applies given substitution map `subst` to every parameter in the given pattern `p`.
-    *
-    * NB: Implicit parameters always occur at the top-level and so this is the only place renaming has to occur.
     */
   def replace(p: TypedAst.Pattern, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Pattern = p match {
     case TypedAst.Pattern.Var(sym, tpe, loc) => subst.get(sym) match {
       case None => TypedAst.Pattern.Var(sym, tpe, loc)
       case Some(newSym) => TypedAst.Pattern.Var(newSym, tpe, loc)
     }
-    case _ => p
+    case _ => p // NB: *If* we allow user-written implicit parameters then this must traverse the pattern.
   }
 
   /**
-    * Returns the given list of implicits parameters as a list of expressions after applying the substitution `subst`.
+    * Returns the given list of implicits parameters as a list of expressions after applying the given substitution `subst`.
     */
   def implicits2exps(implicits: List[(Symbol.VarSym, Type)], subst: Map[Symbol.VarSym, Symbol.VarSym]): List[TypedAst.Expression] = implicits.map {
     case (varSym, tpe) => subst.get(varSym) match {
@@ -331,7 +327,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   }
 
   /**
-    * Returns the given list of implicits parameters as a list of patterns after applying the substitution `subst`.
+    * Returns the given list of implicits parameters as a list of patterns after applying the given substitution `subst`.
     */
   def implicits2pats(implicits: List[(Symbol.VarSym, Type)], subst: Map[Symbol.VarSym, Symbol.VarSym]): List[TypedAst.Pattern] = implicits.map {
     case (varSym, tpe) => subst.get(varSym) match {
@@ -339,7 +335,5 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
       case Some(newSym) => TypedAst.Pattern.Var(newSym, tpe, varSym.loc)
     }
   }
-
-  // TODO: Rename Ambiguous table to Overloaded? or something or other?
 
 }

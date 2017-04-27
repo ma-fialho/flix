@@ -154,13 +154,8 @@ object Ast {
     /**
       * An explicit attribute.
       */
+    // TODO: Add boolean for the explicit scope.
     case object Explicit extends AttributeMode
-
-    /**
-      * An explicit attribute.
-      */
-    // TODO: Make into boolean on Explicit.
-    case object ExplicitCanUnify extends AttributeMode
 
     /**
       * An implicit attribute.
