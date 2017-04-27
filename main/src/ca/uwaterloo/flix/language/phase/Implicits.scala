@@ -45,7 +45,10 @@ import ca.uwaterloo.flix.util.collection.MultiMap
 //
 //    1. Type safety.
 //    2. Rule safety (no unbound head variables).
-//    3. Unique translation.
+//    3. Two distinct explicit variables should never be equivalent.
+//    4. Unique translation.
+
+// TODO: Update doc w.r.t. parameter vs. variable.
 
 /**
   * Computes equivalences of implicit parameters in constraints.
@@ -70,61 +73,77 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     * Performs implicit resolution on the given constraint `s`.
     */
   def implicify(c: TypedAst.Constraint): TypedAst.Constraint = {
-    // An equivalence relation on implicit variable symbols that share the same type.
-    val m = new MultiMap[Symbol.VarSym, Symbol.VarSym]
+    // An equivalence relation on a single explicit parameters in implicit scope and a set implicit parameters.
+    val m1 = new MultiMap[Symbol.VarSym, Symbol.VarSym]
 
-    // Iterate through all explicit parameters which have been put into implicit scope.
-    for ((explicitSym, explicitType) <- explicitUnifiableParamsOf(c)) {
-      m.put(explicitSym, explicitSym)
+    /*
+     * Phase 1: Compute equivalences between explicit and implicit variables.
+     */
 
+    // Compute equivalences between an explicit parameter in implicit scope and implicit parameter.
+    for ((explicitSym, explicitType) <- explicitParamsInImplicitScope(c)) {
+      // Ensure reflexivity.
+      m1.put(explicitSym, explicitSym)
+
+      // Check if the explicit parameter occurs in the head predicate.
       if (occurs(explicitSym, c.head)) {
-        val implicitsParams = implicitParamsOf(c.head)
-        for ((implicitSym, implicitType) <- implicitsParams) {
+        // Attempt to unify the explicit parameter with the implicit parameters.
+        for ((implicitSym, implicitType) <- implicitParamsOf(c.head)) {
+          // Check that the types are compatible.
           if (explicitType == implicitType) {
-            m.put(explicitSym, implicitSym)
+            // TODO: Check that implicitSym is not already unified with something else.
+            m1.put(explicitSym, implicitSym)
           }
         }
       }
 
+      // Iterate through each body predicate.
       for (b <- c.body) {
-        // The explicit variable `sym` appears explicitly in `b`.
-        // Make it equivalent to the appropriate implicit variable in `b`.
+        // Check if the explicit parameter occurs in the body predicate.
         if (occurs(explicitSym, b)) {
-          val implicitsParams = implicitParamsOf(b)
-          for ((implicitSym, implicitType) <- implicitsParams) {
+          // Attempt to unify the explicit parameter with the implicit parameters.
+          for ((implicitSym, implicitType) <- implicitParamsOf(b)) {
+            // Check that the types are compatible.
             if (explicitType == implicitType) {
-              m.put(explicitSym, implicitSym)
+              // TODO: Check that implicitSym is not already unified with something else.
+              m1.put(explicitSym, implicitSym)
             }
           }
         }
       }
-
     }
 
-    // TODO: Handle conflicts.
+    /*
+     * Phase 2: Compute equivalences between the remaining implicit variables.
+     */
 
     // Compute equivalences of implicit variables not unified with an explicit variable.
-    val byType = new MultiMap[Type, Symbol.VarSym]
+    val m2 = new MultiMap[Type, Symbol.VarSym]
 
-    // Iterate through all implicits variable and unify those that do not yet belong to an equivalence class.
+    // Iterate through all implicits variable and unify those that do not yet belong to any equivalence class.
     for ((implicitSym, implicitType) <- implicitParamsOf(c)) {
-      // Check that the implicit sym is not already used.
-      if (!m.keys.contains(implicitSym) && !m.values.exists(_.contains(implicitSym))) {
-        byType.put(implicitType, implicitSym)
+      // Check if the implicit parameter already belongs to an equivalence class.
+      if (!m1.values.exists(_.contains(implicitSym))) {
+        // The implicit parameter does not belong to any equivalence class.
+        m2.put(implicitType, implicitSym)
       }
     }
 
-    // Retrieve the equivalence classes.
-    val equivalences = m.values ++ byType.values
+    // Assert that the two sets of equivalence classes are disjoint.
+    assert((m1.values.flatten intersect m2.values.flatten).isEmpty)
 
-    // Pick a representative of each equivalence class and obtain a substitution map.
+    // Compute the union of the two sets of equivalence classes.
+    val equivalences = m1.values ++ m2.values
+
+    // Compute a substitution map for each equivalence class.
     val substitutions = equivalences.map(getSubstitution)
 
-    // Since the equivalence classes form a partition we can merge the substitution map into one.
+    // Merge each substitution map into a single substitution map.
     val substitution = substitutions.foldLeft(Map.empty[Symbol.VarSym, Symbol.VarSym]) {
       case (macc, subst) => macc ++ subst
     }
 
+    // TODO: Just for debugging.
     println(substitution)
 
     // Apply the substitution to the constraint.
@@ -163,7 +182,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   /**
     * Returns the unifiable explicit parameters along with their types of the given constraint `c`.
     */
-  def explicitUnifiableParamsOf(c: TypedAst.Constraint): List[(Symbol.VarSym, Type)] = c.cparams.collect {
+  def explicitParamsInImplicitScope(c: TypedAst.Constraint): List[(Symbol.VarSym, Type)] = c.cparams.collect {
     case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) if sym.mode == AttributeMode.Explicit => (sym, tpe)
   }
 
