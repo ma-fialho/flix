@@ -48,8 +48,6 @@ import ca.uwaterloo.flix.util.collection.MultiMap
 //    3. Two distinct explicit variables should never be equivalent.
 //    4. Unique translation.
 
-// TODO: Update doc w.r.t. parameter vs. variable.
-
 /**
   * Computes equivalences of implicit parameters in constraints.
   */
@@ -77,7 +75,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     val m1 = new MultiMap[Symbol.VarSym, Symbol.VarSym]
 
     /*
-     * Phase 1: Compute equivalences between explicit and implicit variables.
+     * Phase 1: Compute equivalences between explicit and implicit parameters.
      */
 
     // Compute equivalences between an explicit parameter in implicit scope and implicit parameter.
@@ -114,13 +112,13 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     }
 
     /*
-     * Phase 2: Compute equivalences between the remaining implicit variables.
+     * Phase 2: Compute equivalences between the remaining implicit parameters.
      */
 
-    // Compute equivalences of implicit variables not unified with an explicit variable.
+    // Compute equivalences of implicit parameters not unified with an explicit parameter.
     val m2 = new MultiMap[Type, Symbol.VarSym]
 
-    // Iterate through all implicits variable and unify those that do not yet belong to any equivalence class.
+    // Iterate through all implicits parameter and unify those that do not yet belong to any equivalence class.
     for ((implicitSym, implicitType) <- implicitParamsOf(c)) {
       // Check if the implicit parameter already belongs to an equivalence class.
       if (!m1.values.exists(_.contains(implicitSym))) {
@@ -151,29 +149,31 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   }
 
   /**
-    * Returns `true` iff the given `explicitSym` occurs in the given head predicate `h0`.
+    * Returns `true` iff the given head predicate `h0` is ambiguous and contains the given `explicitSym`.
     */
-  def occurs(explicitSym: Symbol.VarSym, h0: TypedAst.Predicate.Head): Boolean = h0 match {
-    case TypedAst.Predicate.Head.True(loc) => false
-    case TypedAst.Predicate.Head.False(loc) => false
-    case TypedAst.Predicate.Head.Table(sym, terms, loc) => false // TODO: Is it right to return false here?
-    case TypedAst.Predicate.Head.Ambiguous(_, terms, implicits, loc) => terms.exists {
-      // TODO: Recurse?
-      case TypedAst.Expression.Var(sym, tpe, _) => sym == explicitSym
+  def occurs(explicitSym: Symbol.VarSym, h0: TypedAst.Predicate.Head): Boolean = {
+    assert(explicitSym.mode == AttributeMode.Explicit)
+
+    h0 match {
+      case TypedAst.Predicate.Head.Ambiguous(_, terms, implicits, loc) => terms.exists {
+        // TODO: Replace terms by "explicits" which should be a list of variables.
+        case TypedAst.Expression.Var(sym, tpe, _) => sym == explicitSym
+        case _ => false
+      }
       case _ => false
     }
   }
 
   /**
-    * Returns `true` iff the given `explicitSym` occurs in the given body predicate `b0`.
+    * Returns `true` iff the given body predicate `b0` is ambiguous and contains the given `explicitSym`.
     */
   def occurs(explicitSym: Symbol.VarSym, b0: TypedAst.Predicate.Body): Boolean = b0 match {
-    case TypedAst.Predicate.Body.Table(sym, polarity, terms, loc) => false // TODO: Is it right to return false here?
     case TypedAst.Predicate.Body.Ambiguous(_, polarity, terms, implicits, loc) => terms.exists {
-      // TODO: Recurse?
+      // TODO: Replace terms by "explicits" which should be a list of variables.
       case TypedAst.Pattern.Var(sym, tpe, _) => sym == explicitSym
       case _ => false
     }
+    case _ => false
   }
 
   /**
@@ -249,7 +249,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   }
 
   /**
-    * Applies the given substitution map `subst` to every variable in the given constraint `c`.
+    * Applies the given substitution map `subst` to every parameter in the given constraint `c`.
     */
   def replace(c: TypedAst.Constraint, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Constraint = c match {
     case TypedAst.Constraint(cparams0, head0, body0, loc) =>
@@ -263,7 +263,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   }
 
   /**
-    * Applies the given substitution map `subst` to every variable in the given head predicate `h`.
+    * Applies the given substitution map `subst` to every parameter in the given head predicate `h`.
     */
   def replace(h: TypedAst.Predicate.Head, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Predicate.Head = h match {
     case TypedAst.Predicate.Head.True(loc) => TypedAst.Predicate.Head.True(loc)
@@ -277,7 +277,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   }
 
   /**
-    * Applies the given substitution map `subst` to every variable in the given body predicate `h`.
+    * Applies the given substitution map `subst` to every parameter in the given body predicate `h`.
     */
   def replace(b: TypedAst.Predicate.Body, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Predicate.Body = b match {
     case TypedAst.Predicate.Body.Table(sym, polarity, terms, loc) =>
@@ -296,7 +296,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   }
 
   /**
-    * Applies given substitution map `subst` to every variable in the given expression `e`.
+    * Applies given substitution map `subst` to every parameter in the given expression `e`.
     *
     * NB: Implicit parameters always occur at the top-level and so this is the only place renaming has to occur.
     */
@@ -309,7 +309,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   }
 
   /**
-    * Applies given substitution map `subst` to every variable in the given pattern `p`.
+    * Applies given substitution map `subst` to every parameter in the given pattern `p`.
     *
     * NB: Implicit parameters always occur at the top-level and so this is the only place renaming has to occur.
     */
@@ -322,7 +322,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   }
 
   /**
-    * Returns the given list of implicits variables as a list of expressions after applying the substitution `subst`.
+    * Returns the given list of implicits parameters as a list of expressions after applying the substitution `subst`.
     */
   def implicits2exps(implicits: List[(Symbol.VarSym, Type)], subst: Map[Symbol.VarSym, Symbol.VarSym]): List[TypedAst.Expression] = implicits.map {
     case (varSym, tpe) => subst.get(varSym) match {
@@ -332,7 +332,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   }
 
   /**
-    * Returns the given list of implicits variables as a list of patterns after applying the substitution `subst`.
+    * Returns the given list of implicits parameters as a list of patterns after applying the substitution `subst`.
     */
   def implicits2pats(implicits: List[(Symbol.VarSym, Type)], subst: Map[Symbol.VarSym, Symbol.VarSym]): List[TypedAst.Pattern] = implicits.map {
     case (varSym, tpe) => subst.get(varSym) match {

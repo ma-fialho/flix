@@ -159,6 +159,7 @@ object Ast {
     /**
       * An explicit attribute.
       */
+    // TODO: Make into boolean on Explicit.
     case object ExplicitCanUnify extends AttributeMode
 
     /**

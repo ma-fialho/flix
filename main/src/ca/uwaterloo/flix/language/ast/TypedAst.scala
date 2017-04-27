@@ -250,6 +250,7 @@ object TypedAst {
 
       case class Table(sym: Symbol.TableSym, terms: List[TypedAst.Expression], loc: SourceLocation) extends TypedAst.Predicate.Head
 
+      // TODO: For simplicitly maybe we should change the type of terms to be variables only.
       case class Ambiguous(sym: Symbol.TableSym, terms: List[TypedAst.Expression], implicits: List[(Symbol.VarSym, Type)], loc: SourceLocation) extends TypedAst.Predicate.Head
 
     }
