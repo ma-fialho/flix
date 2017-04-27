@@ -34,7 +34,7 @@ object ExecutableAst {
                   properties: List[ExecutableAst.Property],
                   reachable: Set[Symbol.DefnSym],
                   time: Time,
-                  dependenciesOf: Map[Symbol.TableSym, Set[(Constraint, ExecutableAst.Predicate.Body.Positive)]]) extends ExecutableAst
+                  dependenciesOf: Map[Symbol.TableSym, Set[(Constraint, ExecutableAst.Predicate.Body.Table)]]) extends ExecutableAst
 
 
   case class Constraint(cparams: List[ConstraintParam], head: Predicate.Head, body: List[Predicate.Body]) extends ExecutableAst {
@@ -61,8 +61,7 @@ object ExecutableAst {
       * Returns the tables referenced by the body predicates of the constraint.
       */
     val tables: List[ExecutableAst.Predicate.Body] = body.collect {
-      case p: ExecutableAst.Predicate.Body.Positive => p
-      case p: ExecutableAst.Predicate.Body.Negative => p
+      case p: ExecutableAst.Predicate.Body.Table => p
     }
 
     /**
@@ -540,7 +539,7 @@ object ExecutableAst {
 
       case class False(loc: SourceLocation) extends ExecutableAst.Predicate.Head
 
-      case class Table(sym: Symbol.TableSym, polarity: Polarity, terms: Array[ExecutableAst.Term.Head], loc: SourceLocation) extends ExecutableAst.Predicate.Head {
+      case class Table(sym: Symbol.TableSym, terms: Array[ExecutableAst.Term.Head], loc: SourceLocation) extends ExecutableAst.Predicate.Head {
         val arity: Int = terms.length
       }
 
@@ -554,11 +553,7 @@ object ExecutableAst {
 
       // TODO: Remove freeVars
 
-      case class Positive(sym: Symbol.TableSym, terms: Array[ExecutableAst.Term.Body], index2sym: Array[Symbol.VarSym], freeVars: Set[String], loc: SourceLocation) extends ExecutableAst.Predicate.Body {
-        val arity: Int = terms.length
-      }
-
-      case class Negative(sym: Symbol.TableSym, terms: Array[ExecutableAst.Term.Body], index2sym: Array[Symbol.VarSym], freeVars: Set[String], loc: SourceLocation) extends ExecutableAst.Predicate.Body {
+      case class Table(sym: Symbol.TableSym, polarity: Polarity, terms: Array[ExecutableAst.Term.Body], index2sym: Array[Symbol.VarSym], freeVars: Set[String], loc: SourceLocation) extends ExecutableAst.Predicate.Body {
         val arity: Int = terms.length
       }
 

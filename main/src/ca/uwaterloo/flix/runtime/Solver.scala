@@ -372,7 +372,7 @@ class Solver(val root: ExecutableAst.Root, options: Options) {
     case Nil =>
       // cross product complete, now filter
       evalLoop(rule, rule.loops, env, interp)
-    case (p: Predicate.Body.Positive) :: xs =>
+    case (p: Predicate.Body.Table) :: xs =>
       // lookup the relation or lattice.
       val table = root.tables(p.sym) match {
         case r: Table.Relation => dataStore.relations(p.sym)
@@ -438,8 +438,6 @@ class Solver(val root: ExecutableAst.Root, options: Options) {
           evalCross(rule, xs, newRow, interp)
         }
       }
-    case (p: Predicate.Body.Negative) :: xs =>
-      throw InternalRuntimeException("Negated predicates not yet supported")
 
     case _ => throw InternalRuntimeException(s"Unmatched predicate?")
   }
@@ -531,25 +529,21 @@ class Solver(val root: ExecutableAst.Root, options: Options) {
     * Evaluates the given head predicate `p` under the given environment `env0`.
     */
   private def evalHead(p: Predicate.Head, env: Env, interp: Interpretation): Unit = p match {
-    case p: Predicate.Head.Table => p.polarity match {
-      case Polarity.Positive =>
-        val terms = p.terms
-        val fact = new Array[AnyRef](p.arity)
-        var i = 0
-        while (i < fact.length) {
-          val term = evalHeadTerm(terms(i), root, env)
-          fact(i) = term
-          i = i + 1
+    case p: Predicate.Head.Table =>
+      val terms = p.terms
+      val fact = new Array[AnyRef](p.arity)
+      var i = 0
+      while (i < fact.length) {
+        val term = evalHeadTerm(terms(i), root, env)
+        fact(i) = term
+        i = i + 1
 
-          // TODO: Experiment with keyCache.
-          //if(i != fact.length)
-          //  keyCache.put(term)
-        }
+        // TODO: Experiment with keyCache.
+        //if(i != fact.length)
+        //  keyCache.put(term)
+      }
 
-        interp += ((p.sym, fact))
-
-      case Polarity.Negative => ??? // TODO
-    }
+      interp += ((p.sym, fact))
 
     case Predicate.Head.True(loc) => // nop
     case Predicate.Head.False(loc) => throw RuleException(s"The integrity rule defined at ${loc.format} is violated.", loc)

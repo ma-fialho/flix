@@ -67,12 +67,12 @@ object CreateExecutableAst extends Phase[SimplifiedAst.Root, ExecutableAst.Root]
     val reachable = root.reachable
     val time = root.time
 
-    val dependenciesOf: Map[Symbol.TableSym, Set[(ExecutableAst.Constraint, ExecutableAst.Predicate.Body.Positive)]] = {
-      val result = mutable.Map.empty[Symbol.TableSym, Set[(ExecutableAst.Constraint, ExecutableAst.Predicate.Body.Positive)]]
+    val dependenciesOf: Map[Symbol.TableSym, Set[(ExecutableAst.Constraint, ExecutableAst.Predicate.Body.Table)]] = {
+      val result = mutable.Map.empty[Symbol.TableSym, Set[(ExecutableAst.Constraint, ExecutableAst.Predicate.Body.Table)]]
 
       for (rule <- constraints) {
         rule.head match {
-          case ExecutableAst.Predicate.Head.Table(sym, _, _, _) => result.update(sym, Set.empty)
+          case ExecutableAst.Predicate.Head.Table(sym, _, _) => result.update(sym, Set.empty)
           case _ => // nop
         }
       }
@@ -81,7 +81,7 @@ object CreateExecutableAst extends Phase[SimplifiedAst.Root, ExecutableAst.Root]
         for (innerRule <- constraints if innerRule.isRule) {
           for (body <- innerRule.body) {
             (outerRule.head, body) match {
-              case (outer: ExecutableAst.Predicate.Head.Table, inner: ExecutableAst.Predicate.Body.Positive) =>
+              case (outer: ExecutableAst.Predicate.Head.Table, inner: ExecutableAst.Predicate.Body.Table) =>
                 if (outer.sym == inner.sym) {
                   val deps = result(outer.sym)
                   result(outer.sym) = deps + ((innerRule, inner))
@@ -286,11 +286,11 @@ object CreateExecutableAst extends Phase[SimplifiedAst.Root, ExecutableAst.Root]
 
         case SimplifiedAst.Predicate.Head.Positive(name, terms, loc) =>
           val ts = terms.map(Terms.translate).toArray
-          ExecutableAst.Predicate.Head.Table(name, Polarity.Positive, ts, loc)
+          ExecutableAst.Predicate.Head.Table(name, ts, loc)
 
         case SimplifiedAst.Predicate.Head.Negative(name, terms, loc) =>
           val ts = terms.map(Terms.translate).toArray
-          ExecutableAst.Predicate.Head.Table(name, Polarity.Negative, ts, loc)
+          ExecutableAst.Predicate.Head.Table(name, ts, loc)
       }
     }
 
@@ -321,7 +321,7 @@ object CreateExecutableAst extends Phase[SimplifiedAst.Root, ExecutableAst.Root]
             }
             r
           }
-          ExecutableAst.Predicate.Body.Positive(sym, termsArray, index2var, freeVars(terms), loc)
+          ExecutableAst.Predicate.Body.Table(sym, Polarity.Positive, termsArray, index2var, freeVars(terms), loc)
 
         case SimplifiedAst.Predicate.Body.Negative(sym, terms, loc) =>
           val termsArray = terms.map(Terms.Body.translate).toArray
@@ -338,7 +338,7 @@ object CreateExecutableAst extends Phase[SimplifiedAst.Root, ExecutableAst.Root]
             }
             r
           }
-          ExecutableAst.Predicate.Body.Negative(sym, termsArray, index2var, freeVars(terms), loc)
+          ExecutableAst.Predicate.Body.Table(sym, Polarity.Positive, termsArray, index2var, freeVars(terms), loc)
 
 
         case SimplifiedAst.Predicate.Body.Filter(name, terms, loc) =>
