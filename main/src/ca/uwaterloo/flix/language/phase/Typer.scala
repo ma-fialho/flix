@@ -1111,16 +1111,14 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
 
       case ResolvedAst.Predicate.Head.Positive(sym, terms, loc) =>
         val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
-        TypedAst.Predicate.Head.Positive(sym, ts, loc)
+        TypedAst.Predicate.Head.Table(sym, ts, loc)
 
       case ResolvedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) =>
         val is = implicits zip getAttributeTypes(sym, program)
         val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
-        TypedAst.Predicate.Head.PositiveOverloaded(sym, ts, is, loc)
+        TypedAst.Predicate.Head.Ambiguous(sym, ts, is, loc)
 
-      case ResolvedAst.Predicate.Head.Negative(sym, terms, loc) =>
-        val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
-        TypedAst.Predicate.Head.Negative(sym, ts, loc)
+      case ResolvedAst.Predicate.Head.Negative(sym, terms, loc) => ??? // TODO: To be removed.
 
       case ResolvedAst.Predicate.Head.NegativeOverloaded(sym, terms, implicits, loc) => ??? // TODO: To be removed.
     }
@@ -1131,16 +1129,14 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
     def reassemble(body0: ResolvedAst.Predicate.Body, program: ResolvedAst.Program, subst0: Substitution): TypedAst.Predicate.Body = body0 match {
       case ResolvedAst.Predicate.Body.Positive(sym, terms, loc) =>
         val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
-        TypedAst.Predicate.Body.Positive(sym, ts, loc)
+        TypedAst.Predicate.Body.Table(sym, Polarity.Positive, ts, loc)
 
       case ResolvedAst.Predicate.Body.PositiveOverloaded(sym, terms, implicits, loc) =>
         val is = implicits zip getAttributeTypes(sym, program)
         val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
-        TypedAst.Predicate.Body.PositiveOverloaded(sym, ts, is, loc)
+        TypedAst.Predicate.Body.Ambiguous(sym, Polarity.Positive, ts, is, loc)
 
-      case ResolvedAst.Predicate.Body.Negative(sym, terms, loc) =>
-        val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
-        TypedAst.Predicate.Body.Negative(sym, ts, loc)
+      case ResolvedAst.Predicate.Body.Negative(sym, terms, loc) => ??? // TODO: To be removed.
 
       case ResolvedAst.Predicate.Body.NegativeOverloaded(sym, terms, implicits, loc) => ??? // TODO: To be removed.
 

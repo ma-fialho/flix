@@ -156,27 +156,24 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   def occurs(explicitSym: Symbol.VarSym, h0: TypedAst.Predicate.Head): Boolean = h0 match {
     case TypedAst.Predicate.Head.True(loc) => false
     case TypedAst.Predicate.Head.False(loc) => false
-    case TypedAst.Predicate.Head.Positive(sym, terms, loc) => false // TODO: Is it right to return false here?
-    case TypedAst.Predicate.Head.PositiveOverloaded(_, terms, implicits, loc) => terms.exists {
+    case TypedAst.Predicate.Head.Table(sym, terms, loc) => false // TODO: Is it right to return false here?
+    case TypedAst.Predicate.Head.Ambiguous(_, terms, implicits, loc) => terms.exists {
       // TODO: Recurse?
       case TypedAst.Expression.Var(sym, tpe, _) => sym == explicitSym
       case _ => false
     }
-    case TypedAst.Predicate.Head.Negative(sym, terms, loc) => false // TODO: Remove
   }
 
   /**
     * Returns `true` iff the given `explicitSym` occurs in the given body predicate `b0`.
     */
   def occurs(explicitSym: Symbol.VarSym, b0: TypedAst.Predicate.Body): Boolean = b0 match {
-    case TypedAst.Predicate.Body.Positive(sym, terms, loc) => false // TODO: Is it right to return false here?
-    case TypedAst.Predicate.Body.PositiveOverloaded(_, terms, implicits, loc) => terms.exists {
+    case TypedAst.Predicate.Body.Table(sym, polarity, terms, loc) => false // TODO: Is it right to return false here?
+    case TypedAst.Predicate.Body.Ambiguous(_, polarity, terms, implicits, loc) => terms.exists {
       // TODO: Recurse?
       case TypedAst.Pattern.Var(sym, tpe, _) => sym == explicitSym
       case _ => false
     }
-    case TypedAst.Predicate.Body.Negative(sym, terms, loc) => false // TODO: Is it right to return false here?
-    case TypedAst.Predicate.Body.NegativeOverloaded(_, implicits, loc) => ??? // TODO
   }
 
   /**
@@ -199,7 +196,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   def implicitParamsOf(h0: TypedAst.Predicate.Head): Set[(Symbol.VarSym, Type)] = h0 match {
     case TypedAst.Predicate.Head.True(loc) => Set.empty
     case TypedAst.Predicate.Head.False(loc) => Set.empty
-    case TypedAst.Predicate.Head.Positive(_, terms, loc) =>
+    case TypedAst.Predicate.Head.Table(_, terms, loc) =>
       terms.foldLeft(Set.empty[(Symbol.VarSym, Type)]) {
         case (sacc, TypedAst.Expression.Var(sym, tpe, _)) => sym.mode match {
           case AttributeMode.Implicit => sacc + ((sym, tpe))
@@ -207,7 +204,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
         }
         case (sacc, _) => sacc // TODO: Decide if this needs to be recursive?
       }
-    case TypedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) => implicits.toSet
+    case TypedAst.Predicate.Head.Ambiguous(sym, terms, implicits, loc) => implicits.toSet
     case _ => ??? // TODO: remove negative head predicates.
   }
 
@@ -215,7 +212,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     * Returns the implicit parameters of the given body predicate `b0`.
     */
   def implicitParamsOf(b0: TypedAst.Predicate.Body): Set[(Symbol.VarSym, Type)] = b0 match {
-    case TypedAst.Predicate.Body.Positive(_, terms, _) =>
+    case TypedAst.Predicate.Body.Table(_, _, terms, _) =>
       terms.foldLeft(Set.empty[(Symbol.VarSym, Type)]) {
         case (sacc, TypedAst.Pattern.Var(sym, tpe, loc)) => sym.mode match {
           case AttributeMode.Implicit => sacc + ((sym, tpe))
@@ -223,9 +220,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
         }
         case (sacc, _) => sacc // TODO: Decide if this needs to be recursive?
       }
-    case TypedAst.Predicate.Body.PositiveOverloaded(_, _, implicits, _) => implicits.toSet
-    case TypedAst.Predicate.Body.Negative(_, terms, _) => ???
-    case TypedAst.Predicate.Body.NegativeOverloaded(_, _, _) => ???
+    case TypedAst.Predicate.Body.Ambiguous(_, _, _, implicits, _) => implicits.toSet
     case TypedAst.Predicate.Body.Filter(sym, terms, loc) => Set.empty // TODO: Correct?
     case TypedAst.Predicate.Body.Loop(sym, term, loc) => Set.empty // TODO: Correct?
   }
@@ -273,33 +268,25 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   def replace(h: TypedAst.Predicate.Head, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Predicate.Head = h match {
     case TypedAst.Predicate.Head.True(loc) => TypedAst.Predicate.Head.True(loc)
     case TypedAst.Predicate.Head.False(loc) => TypedAst.Predicate.Head.False(loc)
-    case TypedAst.Predicate.Head.Positive(sym, terms, loc) =>
+    case TypedAst.Predicate.Head.Table(sym, terms, loc) =>
       val ts = terms.map(t => replace(t, subst))
-      TypedAst.Predicate.Head.Positive(sym, ts, loc)
-    case TypedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) =>
+      TypedAst.Predicate.Head.Table(sym, ts, loc)
+    case TypedAst.Predicate.Head.Ambiguous(sym, terms, implicits, loc) =>
       val ts = implicits2exps(implicits, subst)
-      TypedAst.Predicate.Head.Positive(sym, ts, loc)
-    case TypedAst.Predicate.Head.Negative(sym, terms, loc) =>
-      val ts = terms.map(t => replace(t, subst))
-      TypedAst.Predicate.Head.Negative(sym, ts, loc)
+      TypedAst.Predicate.Head.Table(sym, ts, loc)
   }
 
   /**
     * Applies the given substitution map `subst` to every variable in the given body predicate `h`.
     */
   def replace(b: TypedAst.Predicate.Body, subst: Map[Symbol.VarSym, Symbol.VarSym]): TypedAst.Predicate.Body = b match {
-    case TypedAst.Predicate.Body.Positive(sym, terms, loc) =>
+    case TypedAst.Predicate.Body.Table(sym, polarity, terms, loc) =>
       val ts = terms.map(t => replace(t, subst))
-      TypedAst.Predicate.Body.Positive(sym, ts, loc)
+      TypedAst.Predicate.Body.Table(sym, polarity, ts, loc)
 
-    case TypedAst.Predicate.Body.PositiveOverloaded(sym, terms, implicits, loc) =>
+    case TypedAst.Predicate.Body.Ambiguous(sym, polarity, terms, implicits, loc) =>
       val ts = implicits2pats(implicits, subst)
-      TypedAst.Predicate.Body.Positive(sym, ts, loc)
-
-    case TypedAst.Predicate.Body.Negative(sym, terms, loc) =>
-      val ts = terms.map(t => replace(t, subst))
-      TypedAst.Predicate.Body.Negative(sym, ts, loc)
-
+      TypedAst.Predicate.Body.Table(sym, polarity, ts, loc)
 
     // TODO: How do implicits interact with filter and loop predicates?
 

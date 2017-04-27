@@ -390,25 +390,23 @@ object Simplifier extends Phase[TypedAst.Root, SimplifiedAst.Root] {
 
         case TypedAst.Predicate.Head.False(loc) => SimplifiedAst.Predicate.Head.False(loc)
 
-        case TypedAst.Predicate.Head.Positive(sym, terms, loc) =>
+        case TypedAst.Predicate.Head.Table(sym, terms, loc) =>
           val ts = terms.map(t => Term.Head.simplify(t, cparams, toplevel))
           SimplifiedAst.Predicate.Head.Table(sym, ts, loc)
 
-        case TypedAst.Predicate.Head.Negative(sym, terms, loc) =>
-          val ts = terms.map(t => Term.Head.simplify(t, cparams, toplevel))
-          SimplifiedAst.Predicate.Head.Table(sym, ts, loc)
+        case TypedAst.Predicate.Head.Ambiguous(sym, terms, implicits, loc) =>
+          throw InternalCompilerException("Ambiguous head predicate should have been resolved by Implicits phase.")
       }
     }
 
     object Body {
       def simplify(tast: TypedAst.Predicate.Body, cparams: List[TypedAst.ConstraintParam], toplevel: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Predicate.Body = tast match {
-        case TypedAst.Predicate.Body.Positive(sym, terms, loc) =>
+        case TypedAst.Predicate.Body.Table(sym, polarity, terms, loc) =>
           val ts = terms map Term.Body.simplify
-          SimplifiedAst.Predicate.Body.Table(sym, Polarity.Positive, ts, loc)
+          SimplifiedAst.Predicate.Body.Table(sym, polarity, ts, loc)
 
-        case TypedAst.Predicate.Body.Negative(sym, terms, loc) =>
-          val ts = terms map Term.Body.simplify
-          SimplifiedAst.Predicate.Body.Table(sym, Polarity.Negative, ts, loc)
+        case TypedAst.Predicate.Body.Ambiguous(sym, polarity, terms, implicits, loc) =>
+          throw InternalCompilerException("Ambiguous body predicate should have been resolved by Implicits phase.")
 
         case TypedAst.Predicate.Body.Filter(sym, terms, loc) =>
           SimplifiedAst.Predicate.Body.Filter(sym, terms map Term.Body.simplify, loc)
