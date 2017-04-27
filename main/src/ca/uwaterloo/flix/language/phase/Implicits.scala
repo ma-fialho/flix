@@ -202,10 +202,9 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
           case AttributeMode.Implicit => sacc + ((sym, tpe))
           case AttributeMode.Explicit => sacc
         }
-        case (sacc, _) => sacc // TODO: Decide if this needs to be recursive?
+        case (sacc, _) => sacc // NB: *If* we allow user-written implicit parameters ?x then we must traverse the expression.
       }
     case TypedAst.Predicate.Head.Ambiguous(sym, terms, implicits, loc) => implicits.toSet
-    case _ => ??? // TODO: remove negative head predicates.
   }
 
   /**
@@ -218,13 +217,12 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
           case AttributeMode.Implicit => sacc + ((sym, tpe))
           case AttributeMode.Explicit => sacc
         }
-        case (sacc, _) => sacc // TODO: Decide if this needs to be recursive?
+        case (sacc, _) => sacc // NB: *If* we allow user-written implicit parameters ?x then we must traverse the expression.
       }
     case TypedAst.Predicate.Body.Ambiguous(_, _, _, implicits, _) => implicits.toSet
-    case TypedAst.Predicate.Body.Filter(sym, terms, loc) => Set.empty // TODO: Correct?
-    case TypedAst.Predicate.Body.Loop(sym, term, loc) => Set.empty // TODO: Correct?
+    case TypedAst.Predicate.Body.Filter(sym, terms, loc) => Set.empty // As above.
+    case TypedAst.Predicate.Body.Loop(sym, term, loc) => Set.empty // As above.
   }
-
 
   /**
     * Picks a representative from the the set `s` and returns a substitution map
@@ -235,8 +233,9 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     if (ec.size == 1)
       return Map.empty
 
-    // Randomly pick the first element of the equivalence class.
-    val representative = ec.head
+    // Try to select the explicit parameter (if any other).
+    // Otherwise randomly select the first parameter.
+    val representative = ec.find(_.mode == AttributeMode.Explicit).getOrElse(ec.head)
 
     // Map every other symbol to the representative.
     ec.foldLeft(Map.empty[Symbol.VarSym, Symbol.VarSym]) {
