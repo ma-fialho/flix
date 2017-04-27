@@ -284,11 +284,7 @@ object CreateExecutableAst extends Phase[SimplifiedAst.Root, ExecutableAst.Root]
         case SimplifiedAst.Predicate.Head.True(loc) => ExecutableAst.Predicate.Head.True(loc)
         case SimplifiedAst.Predicate.Head.False(loc) => ExecutableAst.Predicate.Head.False(loc)
 
-        case SimplifiedAst.Predicate.Head.Positive(name, terms, loc) =>
-          val ts = terms.map(Terms.translate).toArray
-          ExecutableAst.Predicate.Head.Table(name, ts, loc)
-
-        case SimplifiedAst.Predicate.Head.Negative(name, terms, loc) =>
+        case SimplifiedAst.Predicate.Head.Table(name, terms, loc) =>
           val ts = terms.map(Terms.translate).toArray
           ExecutableAst.Predicate.Head.Table(name, ts, loc)
       }
@@ -306,7 +302,7 @@ object CreateExecutableAst extends Phase[SimplifiedAst.Root, ExecutableAst.Root]
       }
 
       def toExecutable(sast: SimplifiedAst.Predicate.Body): ExecutableAst.Predicate.Body = sast match {
-        case SimplifiedAst.Predicate.Body.Positive(sym, terms, loc) =>
+        case SimplifiedAst.Predicate.Body.Table(sym, polarity, terms, loc) =>
           val termsArray = terms.map(Terms.Body.translate).toArray
           val index2var: Array[Symbol.VarSym] = {
             val r = new Array[Symbol.VarSym](termsArray.length)
@@ -321,25 +317,7 @@ object CreateExecutableAst extends Phase[SimplifiedAst.Root, ExecutableAst.Root]
             }
             r
           }
-          ExecutableAst.Predicate.Body.Table(sym, Polarity.Positive, termsArray, index2var, freeVars(terms), loc)
-
-        case SimplifiedAst.Predicate.Body.Negative(sym, terms, loc) =>
-          val termsArray = terms.map(Terms.Body.translate).toArray
-          val index2var: Array[Symbol.VarSym] = {
-            val r = new Array[Symbol.VarSym](termsArray.length)
-            var i = 0
-            while (i < r.length) {
-              termsArray(i) match {
-                case ExecutableAst.Term.Body.Var(sym, _, _) =>
-                  r(i) = sym
-                case _ => // nop
-              }
-              i = i + 1
-            }
-            r
-          }
-          ExecutableAst.Predicate.Body.Table(sym, Polarity.Positive, termsArray, index2var, freeVars(terms), loc)
-
+          ExecutableAst.Predicate.Body.Table(sym, polarity, termsArray, index2var, freeVars(terms), loc)
 
         case SimplifiedAst.Predicate.Body.Filter(name, terms, loc) =>
           val termsArray = terms.map(Terms.Body.translate).toArray

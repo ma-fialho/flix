@@ -392,11 +392,11 @@ object Simplifier extends Phase[TypedAst.Root, SimplifiedAst.Root] {
 
         case TypedAst.Predicate.Head.Positive(sym, terms, loc) =>
           val ts = terms.map(t => Term.Head.simplify(t, cparams, toplevel))
-          SimplifiedAst.Predicate.Head.Positive(sym, ts, loc)
+          SimplifiedAst.Predicate.Head.Table(sym, ts, loc)
 
         case TypedAst.Predicate.Head.Negative(sym, terms, loc) =>
           val ts = terms.map(t => Term.Head.simplify(t, cparams, toplevel))
-          SimplifiedAst.Predicate.Head.Negative(sym, ts, loc)
+          SimplifiedAst.Predicate.Head.Table(sym, ts, loc)
       }
     }
 
@@ -404,11 +404,11 @@ object Simplifier extends Phase[TypedAst.Root, SimplifiedAst.Root] {
       def simplify(tast: TypedAst.Predicate.Body, cparams: List[TypedAst.ConstraintParam], toplevel: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Predicate.Body = tast match {
         case TypedAst.Predicate.Body.Positive(sym, terms, loc) =>
           val ts = terms map Term.Body.simplify
-          SimplifiedAst.Predicate.Body.Positive(sym, ts, loc)
+          SimplifiedAst.Predicate.Body.Table(sym, Polarity.Positive, ts, loc)
 
         case TypedAst.Predicate.Body.Negative(sym, terms, loc) =>
           val ts = terms map Term.Body.simplify
-          SimplifiedAst.Predicate.Body.Negative(sym, ts, loc)
+          SimplifiedAst.Predicate.Body.Table(sym, Polarity.Negative, ts, loc)
 
         case TypedAst.Predicate.Body.Filter(sym, terms, loc) =>
           SimplifiedAst.Predicate.Body.Filter(sym, terms map Term.Body.simplify, loc)

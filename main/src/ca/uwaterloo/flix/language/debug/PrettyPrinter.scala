@@ -66,9 +66,11 @@ object PrettyPrinter {
       h match {
         case SimplifiedAst.Predicate.Head.True(loc) =>
           vt << "true"
+
         case SimplifiedAst.Predicate.Head.False(loc) =>
           vt << "false"
-        case SimplifiedAst.Predicate.Head.Positive(sym, terms, loc) =>
+
+        case SimplifiedAst.Predicate.Head.Table(sym, terms, loc) =>
           fmtSym(sym, vt)
           vt << "("
           for (t <- terms) {
@@ -76,16 +78,16 @@ object PrettyPrinter {
             vt << ", "
           }
           vt << ")"
-        case SimplifiedAst.Predicate.Head.Negative(sym, terms, loc) => ???
       }
       vt
     }
 
     def fmtBodyPredicate(b: SimplifiedAst.Predicate.Body, vt: VirtualTerminal): VirtualTerminal = {
       b match {
-        case SimplifiedAst.Predicate.Body.Positive(sym, terms, loc) =>
+        case SimplifiedAst.Predicate.Body.Table(sym, polarity, terms, loc) =>
+          if (polarity == Polarity.Negative)
+            vt << "!"
           fmtSym(sym, vt)
-
           vt << "("
           for (t <- terms) {
             fmtBodyTerm(t, vt)
@@ -93,8 +95,8 @@ object PrettyPrinter {
           }
           vt << ")"
 
-        case SimplifiedAst.Predicate.Body.Negative(sym, terms, loc) =>
         case SimplifiedAst.Predicate.Body.Filter(sym, terms, loc) => ???
+
         case SimplifiedAst.Predicate.Body.Loop(sym, terms, loc) => ???
       }
 
