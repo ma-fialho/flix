@@ -87,10 +87,8 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     // An equivalence relation on implicit variable symbols that share the same type.
     val m = new MultiMap[Symbol.VarSym, Symbol.VarSym]
 
-    // TODO: Here we should iterate through the explicit CAN UNIF parameters...
-    // Iterate through all *explicit* parameters and unify each explicit parameter with the implicit parameters from where it occurs.
+    // Iterate through all explicit parameters which have been put into implicit scope.
     for ((explicitSym, explicitType) <- explicitUnifiableParamsOf(c)) {
-
       m.put(explicitSym, explicitSym)
 
       if (occurs(explicitSym, c.head)) {
@@ -118,11 +116,20 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     }
 
     // TODO: Handle conflicts.
-    // TODO: Iterate through all symbols that do not belong to a class and unify them by type.
 
+    val byType = new MultiMap[Type, Symbol.VarSym]
+
+    // Iterate through all implicits variable and unify those that do not yet belong to an equivalence class.
+    for ((implicitSym, implicitType) <- implicitParamsOf(c)) {
+
+      // Check that the implicit sym is not already used.
+      if (!m.keys.contains(implicitSym) && !m.values.exists(_.contains(implicitSym))) {
+        byType.put(implicitType, implicitSym)
+      }
+    }
 
     // Retrieve the equivalence classes.
-    val equivalences = m.values
+    val equivalences = m.values ++ byType.values
 
     // Pick a representative of each equivalence class and obtain a substitution map.
     val substitutions = equivalences.map(getSubstitution)
@@ -157,13 +164,13 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     * Returns `true` iff the given `explicitSym` occurs in the given body predicate `b0`.
     */
   def occurs(explicitSym: Symbol.VarSym, b0: TypedAst.Predicate.Body): Boolean = b0 match {
-    case TypedAst.Predicate.Body.Positive(sym, terms ,loc) => false // TODO: Is it right to return false here?
+    case TypedAst.Predicate.Body.Positive(sym, terms, loc) => false // TODO: Is it right to return false here?
     case TypedAst.Predicate.Body.PositiveOverloaded(_, terms, implicits, loc) => terms.exists {
       // TODO: Recurse?
       case TypedAst.Pattern.Var(sym, tpe, _) => sym == explicitSym
       case _ => false
     }
-    case TypedAst.Predicate.Body.Negative(sym, terms ,loc) => false // TODO: Is it right to return false here?
+    case TypedAst.Predicate.Body.Negative(sym, terms, loc) => false // TODO: Is it right to return false here?
     case TypedAst.Predicate.Body.NegativeOverloaded(_, implicits, loc) => ??? // TODO
   }
 
@@ -183,6 +190,13 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     */
   def explicitUnifiableParamsOf(c: TypedAst.Constraint): List[(Symbol.VarSym, Type)] = c.cparams.collect {
     case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) if sym.mode == AttributeMode.Explicit => (sym, tpe)
+  }
+
+  /**
+    * Returns the implicit parameters along with their types of the given constraint `c`.
+    */
+  def implicitParamsOf(c: TypedAst.Constraint): List[(Symbol.VarSym, Type)] = c.cparams.collect {
+    case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) if sym.mode == AttributeMode.Implicit => (sym, tpe)
   }
 
   /**
