@@ -184,9 +184,7 @@ object WeededAst {
 
       case class False(loc: SourceLocation) extends WeededAst.Predicate.Head
 
-      case class Positive(name: Name.QName, terms: List[WeededAst.Expression], loc: SourceLocation) extends WeededAst.Predicate.Head
-
-      case class Negative(name: Name.QName, terms: List[WeededAst.Expression], loc: SourceLocation) extends WeededAst.Predicate.Head
+      case class Table(name: Name.QName, terms: List[WeededAst.Expression], loc: SourceLocation) extends WeededAst.Predicate.Head
 
     }
 
@@ -194,9 +192,7 @@ object WeededAst {
 
     object Body {
 
-      case class Positive(name: Name.QName, terms: List[WeededAst.Pattern], loc: SourceLocation) extends WeededAst.Predicate.Body
-
-      case class Negative(name: Name.QName, terms: List[WeededAst.Pattern], loc: SourceLocation) extends WeededAst.Predicate.Body
+      case class Table(name: Name.QName, polarity: Polarity, terms: List[WeededAst.Pattern], loc: SourceLocation) extends WeededAst.Predicate.Body
 
       case class Filter(name: Name.QName, terms: List[WeededAst.Expression], loc: SourceLocation) extends WeededAst.Predicate.Body
 

@@ -713,7 +713,7 @@ class Parser(val source: SourceInput) extends org.parboiled2.Parser {
   // Predicates                                                              //
   /////////////////////////////////////////////////////////////////////////////
   def HeadPredicate: Rule1[ParsedAst.Predicate.Head] = rule {
-    Predicates.Head.True | Predicates.Head.False | Predicates.Head.Positive | Predicates.Head.Negative
+    Predicates.Head.True | Predicates.Head.False | Predicates.Head.Table
   }
 
   def BodyPredicate: Rule1[ParsedAst.Predicate.Body] = rule {
@@ -731,12 +731,8 @@ class Parser(val source: SourceInput) extends org.parboiled2.Parser {
         SP ~ atomic("false") ~ SP ~> ParsedAst.Predicate.Head.False
       }
 
-      def Positive: Rule1[ParsedAst.Predicate.Head.Positive] = rule {
-        SP ~ Names.QualifiedTable ~ optWS ~ NonEmptyArgumentList ~ SP ~> ParsedAst.Predicate.Head.Positive
-      }
-
-      def Negative: Rule1[ParsedAst.Predicate.Head.Negative] = rule {
-        SP ~ "!" ~ optWS ~ Names.QualifiedTable ~ optWS ~ NonEmptyArgumentList ~ SP ~> ParsedAst.Predicate.Head.Negative
+      def Table: Rule1[ParsedAst.Predicate.Head.Table] = rule {
+        SP ~ Names.QualifiedTable ~ optWS ~ NonEmptyArgumentList ~ SP ~> ParsedAst.Predicate.Head.Table
       }
     }
 

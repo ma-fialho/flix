@@ -765,24 +765,14 @@ object ParsedAst {
       case class False(sp1: SourcePosition, sp2: SourcePosition) extends ParsedAst.Predicate.Head
 
       /**
-        * Positive Predicate.
+        * Table Predicate.
         *
         * @param sp1   the position of the first character in the predicate.
         * @param name  the qualified name of the table.
         * @param terms the terms of the predicate.
         * @param sp2   the position of the last character in the predicate.
         */
-      case class Positive(sp1: SourcePosition, name: Name.QName, terms: Seq[ParsedAst.Expression], sp2: SourcePosition) extends ParsedAst.Predicate.Head
-
-      /**
-        * Negative Predicate.
-        *
-        * @param sp1   the position of the first character in the predicate.
-        * @param name  the qualified name of the table.
-        * @param terms the terms of the predicate.
-        * @param sp2   the position of the last character in the predicate.
-        */
-      case class Negative(sp1: SourcePosition, name: Name.QName, terms: Seq[ParsedAst.Expression], sp2: SourcePosition) extends ParsedAst.Predicate.Head
+      case class Table(sp1: SourcePosition, name: Name.QName, terms: Seq[ParsedAst.Expression], sp2: SourcePosition) extends ParsedAst.Predicate.Head
 
     }
 
@@ -791,7 +781,7 @@ object ParsedAst {
     object Body {
 
       /**
-        * Positive Predicate.
+        * Positive Table Predicate.
         *
         * @param sp1   the position of the first character in the predicate.
         * @param name  the qualified name of the table.
@@ -801,7 +791,7 @@ object ParsedAst {
       case class Positive(sp1: SourcePosition, name: Name.QName, terms: Seq[ParsedAst.Pattern], sp2: SourcePosition) extends ParsedAst.Predicate.Body
 
       /**
-        * Negative Predicate.
+        * Negative Table Predicate.
         *
         * @param sp1   the position of the first character in the predicate.
         * @param name  the qualified name of the table.

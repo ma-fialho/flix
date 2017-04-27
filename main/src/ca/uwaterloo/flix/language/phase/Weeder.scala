@@ -801,14 +801,9 @@ object Weeder extends Phase[ParsedAst.Program, WeededAst.Program] {
 
         case ParsedAst.Predicate.Head.False(sp1, sp2) => WeededAst.Predicate.Head.False(mkSL(sp1, sp2)).toSuccess
 
-        case ParsedAst.Predicate.Head.Positive(sp1, qname, terms, sp2) =>
+        case ParsedAst.Predicate.Head.Table(sp1, qname, terms, sp2) =>
           @@(terms.map(t => Expressions.weed(t))) map {
-            case ts => WeededAst.Predicate.Head.Positive(qname, ts, mkSL(sp1, sp2))
-          }
-
-        case ParsedAst.Predicate.Head.Negative(sp1, qname, terms, sp2) =>
-          @@(terms.map(t => Expressions.weed(t))) map {
-            case ts => WeededAst.Predicate.Head.Negative(qname, ts, mkSL(sp1, sp2))
+            case ts => WeededAst.Predicate.Head.Table(qname, ts, mkSL(sp1, sp2))
           }
       }
 
@@ -822,13 +817,13 @@ object Weeder extends Phase[ParsedAst.Program, WeededAst.Program] {
       def weed(past: ParsedAst.Predicate.Body)(implicit flix: Flix): Validation[WeededAst.Predicate.Body, WeederError] = past match {
         case ParsedAst.Predicate.Body.Positive(sp1, qname, terms, sp2) =>
           @@(terms.map(t => Patterns.weed(t))) map {
-            case ts => WeededAst.Predicate.Body.Positive(qname, ts, mkSL(sp1, sp2))
+            case ts => WeededAst.Predicate.Body.Table(qname, Polarity.Positive, ts, mkSL(sp1, sp2))
           }
 
         case ParsedAst.Predicate.Body.Negative(sp1, qname, terms, sp2) =>
           val loc = mkSL(sp1, sp2)
           @@(terms.map(t => Patterns.weed(t))) map {
-            case ts => WeededAst.Predicate.Body.Negative(qname, ts, loc)
+            case ts => WeededAst.Predicate.Body.Table(qname, Polarity.Negative, ts, loc)
           }
 
         case ParsedAst.Predicate.Body.Filter(sp1, qname, terms, sp2) =>
@@ -1100,7 +1095,7 @@ object Weeder extends Phase[ParsedAst.Program, WeededAst.Program] {
       case attr@ParsedAst.Attribute.Explicit(sp1, ident, tpe, sp2) => seen.get(ident.name) match {
         case None =>
           seen += (ident.name -> attr)
-          WeededAst.Attribute(ident,  AttributeMode.Explicit, Types.weed(tpe), mkSL(sp1, sp2)).toSuccess
+          WeededAst.Attribute(ident, AttributeMode.Explicit, Types.weed(tpe), mkSL(sp1, sp2)).toSuccess
         case Some(otherAttr) =>
           val loc1 = mkSL(otherAttr.sp1, otherAttr.sp2)
           val loc2 = mkSL(attr.sp1, attr.sp2)
@@ -1109,7 +1104,7 @@ object Weeder extends Phase[ParsedAst.Program, WeededAst.Program] {
       case attr@ParsedAst.Attribute.Implicit(sp1, ident, tpe, sp2) => seen.get(ident.name) match {
         case None =>
           seen += (ident.name -> attr)
-          WeededAst.Attribute(ident,  AttributeMode.Implicit, Types.weed(tpe), mkSL(sp1, sp2)).toSuccess
+          WeededAst.Attribute(ident, AttributeMode.Implicit, Types.weed(tpe), mkSL(sp1, sp2)).toSuccess
         case Some(otherAttr) =>
           val loc1 = mkSL(otherAttr.sp1, otherAttr.sp2)
           val loc2 = mkSL(attr.sp1, attr.sp2)
