@@ -43,10 +43,10 @@ object PrettyPrinter {
   def fmt(f: ExecutableAst.Constraint, sb: StringBuilder): StringBuilder = f.head match {
     case ExecutableAst.Predicate.Head.True(loc) => sb.append("true")
     case ExecutableAst.Predicate.Head.False(loc) => sb.append("false")
-    case ExecutableAst.Predicate.Head.Positive(sym, terms, loc) =>
-      sb.append(sym).append("(").append(terms.map(t => fmt(t, new StringBuilder)).mkString(", ")).append(").")
-    case ExecutableAst.Predicate.Head.Negative(sym, terms, loc) =>
-      sb.append("!").append(sym).append("(").append(terms.map(t => fmt(t, new StringBuilder)).mkString(", ")).append(").")
+    case ExecutableAst.Predicate.Head.Table(sym, polarity, terms, loc) => polarity match {
+      case Polarity.Positive => sb.append(sym).append("(").append(terms.map(t => fmt(t, new StringBuilder)).mkString(", ")).append(").")
+      case Polarity.Negative => sb.append("!").append(sym).append("(").append(terms.map(t => fmt(t, new StringBuilder)).mkString(", ")).append(").")
+    }
   }
 
   /**

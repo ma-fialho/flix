@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import ca.uwaterloo.flix.api.{RuleException, TimeoutException}
 import ca.uwaterloo.flix.language.ast.ExecutableAst.Term.Body.Pat
 import ca.uwaterloo.flix.language.ast.ExecutableAst._
-import ca.uwaterloo.flix.language.ast.{ExecutableAst, Symbol}
+import ca.uwaterloo.flix.language.ast.{ExecutableAst, Polarity, Symbol}
 import ca.uwaterloo.flix.runtime.datastore.{DataStore, KeyCache}
 import ca.uwaterloo.flix.runtime.debugger.RestServer
 import ca.uwaterloo.flix.util._
@@ -531,24 +531,26 @@ class Solver(val root: ExecutableAst.Root, options: Options) {
     * Evaluates the given head predicate `p` under the given environment `env0`.
     */
   private def evalHead(p: Predicate.Head, env: Env, interp: Interpretation): Unit = p match {
-    case p: Predicate.Head.Positive =>
-      val terms = p.terms
-      val fact = new Array[AnyRef](p.arity)
-      var i = 0
-      while (i < fact.length) {
-        val term = evalHeadTerm(terms(i), root, env)
-        fact(i) = term
-        i = i + 1
+    case p: Predicate.Head.Table => p.polarity match {
+      case Polarity.Positive =>
+        val terms = p.terms
+        val fact = new Array[AnyRef](p.arity)
+        var i = 0
+        while (i < fact.length) {
+          val term = evalHeadTerm(terms(i), root, env)
+          fact(i) = term
+          i = i + 1
 
-        // TODO: Experiment with keyCache.
-        //if(i != fact.length)
-        //  keyCache.put(term)
-      }
+          // TODO: Experiment with keyCache.
+          //if(i != fact.length)
+          //  keyCache.put(term)
+        }
 
-      interp += ((p.sym, fact))
-    case p: Predicate.Head.Negative =>
-      val terms = p.terms
-      throw InternalRuntimeException("Negation not implemented yet.")
+        interp += ((p.sym, fact))
+
+      case Polarity.Negative => ??? // TODO
+    }
+
     case Predicate.Head.True(loc) => // nop
     case Predicate.Head.False(loc) => throw RuleException(s"The integrity rule defined at ${loc.format} is violated.", loc)
   }

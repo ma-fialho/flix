@@ -540,11 +540,7 @@ object ExecutableAst {
 
       case class False(loc: SourceLocation) extends ExecutableAst.Predicate.Head
 
-      case class Positive(sym: Symbol.TableSym, terms: Array[ExecutableAst.Term.Head], loc: SourceLocation) extends ExecutableAst.Predicate.Head {
-        val arity: Int = terms.length
-      }
-
-      case class Negative(sym: Symbol.TableSym, terms: Array[ExecutableAst.Term.Head], loc: SourceLocation) extends ExecutableAst.Predicate.Head {
+      case class Table(sym: Symbol.TableSym, polarity: Polarity, terms: Array[ExecutableAst.Term.Head], loc: SourceLocation) extends ExecutableAst.Predicate.Head {
         val arity: Int = terms.length
       }
 
