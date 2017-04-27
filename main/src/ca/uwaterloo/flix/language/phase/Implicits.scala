@@ -341,4 +341,6 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     }
   }
 
+  // TODO: Rename Ambiguous table to Overloaded? or something or other?
+
 }

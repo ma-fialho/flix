@@ -441,7 +441,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
 
         case NamedAst.Predicate.Head.False(loc) => ResolvedAst.Predicate.Head.False(loc).toSuccess
 
-        case NamedAst.Predicate.Head.Positive(qname0, terms0, loc) =>
+        case NamedAst.Predicate.Head.Table(qname0, terms0, loc) =>
           for {
             t <- lookupTable(qname0, ns0, prog0)
             ts <- seqM(terms0.map(t => Expressions.resolve(t, ns0, prog0)))
@@ -452,13 +452,11 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
 
             getTermsWithImplicits(t, ts, f) match {
               case ImplicitMatch.Exact(terms) =>
-                ResolvedAst.Predicate.Head.Positive(t.sym, terms, loc)
+                ResolvedAst.Predicate.Head.Table(t.sym, terms, loc)
               case ImplicitMatch.Overloaded(terms, implicits) =>
-                ResolvedAst.Predicate.Head.PositiveOverloaded(t.sym, terms, implicits, loc)
+                ResolvedAst.Predicate.Head.Ambiguous(t.sym, terms, implicits, loc)
             }
           }
-
-        case NamedAst.Predicate.Head.Negative(qname, terms, loc) => ??? // TODO: Remove NamedAst.Predicate.Head.Negative
       }
 
       /**
@@ -467,9 +465,8 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
       def implicitsOf(h0: ResolvedAst.Predicate.Head): Set[Symbol.VarSym] = h0 match {
         case ResolvedAst.Predicate.Head.True(loc) => Set.empty
         case ResolvedAst.Predicate.Head.False(loc) => Set.empty
-        case ResolvedAst.Predicate.Head.Positive(_, terms, _) => terms.flatMap(implicitsOf).toSet
-        case ResolvedAst.Predicate.Head.PositiveOverloaded(_, _, implicits, _) => implicits.toSet
-        case ResolvedAst.Predicate.Head.Negative(_, terms, _) => ??? // TODO: Remove
+        case ResolvedAst.Predicate.Head.Table(_, terms, _) => terms.flatMap(implicitsOf).toSet
+        case ResolvedAst.Predicate.Head.Ambiguous(_, _, implicits, _) => implicits.toSet
       }
 
       /**
@@ -489,7 +486,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         * Performs name resolution on the given body predicate `b0` in the given namespace `ns0`.
         */
       def resolve(b0: NamedAst.Predicate.Body, ns0: Name.NName, prog0: NamedAst.Program)(implicit genSym: GenSym): Validation[ResolvedAst.Predicate.Body, ResolutionError] = b0 match {
-        case NamedAst.Predicate.Body.Positive(qname0, terms0, loc) =>
+        case NamedAst.Predicate.Body.Table(qname0, polarity, terms0, loc) =>
           for {
             t <- lookupTable(qname0, ns0, prog0)
             ts <- seqM(terms0.map(t => Patterns.resolve(t, ns0, prog0)))
@@ -500,24 +497,10 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
 
             getTermsWithImplicits(t, ts, f) match {
               case ImplicitMatch.Exact(terms) =>
-                ResolvedAst.Predicate.Body.Positive(t.sym, terms, loc)
-              case ImplicitMatch.Overloaded(terms, implicits) => ResolvedAst.Predicate.Body.PositiveOverloaded(t.sym, terms, implicits, loc)
+                ResolvedAst.Predicate.Body.Table(t.sym, polarity, terms, loc)
+              case ImplicitMatch.Overloaded(terms, implicits) => ResolvedAst.Predicate.Body.Ambiguous(t.sym, polarity, terms, implicits, loc)
             }
 
-          }
-
-        case NamedAst.Predicate.Body.Negative(qname0, terms0, loc) =>
-          for {
-            t <- lookupTable(qname0, ns0, prog0)
-            ts <- seqM(terms0.map(t => Patterns.resolve(t, ns0, prog0)))
-          } yield {
-
-            // TODO: Get rid of
-            def f(sym: Symbol.VarSym): ResolvedAst.Pattern = ResolvedAst.Pattern.Var(sym, Type.freshTypeVar(), SourceLocation.Unknown)
-
-            getTermsWithImplicits(t, ts, f) match {
-              case ImplicitMatch.Exact(terms) => ResolvedAst.Predicate.Body.Negative(t.sym, terms, loc)
-            }
           }
 
         case NamedAst.Predicate.Body.Filter(qname, terms, loc) =>
@@ -540,15 +523,11 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         * Returns the set of implicit parameters of the given body predicate `b0`.
         */
       def implicitsOf(b0: ResolvedAst.Predicate.Body): Set[Symbol.VarSym] = b0 match {
-        case ResolvedAst.Predicate.Body.Positive(sym, terms, loc) =>
+        case ResolvedAst.Predicate.Body.Table(sym, polarity, terms, loc) =>
           terms.foldLeft(Set.empty[Symbol.VarSym]) {
             case (xs, p) => xs ++ implicitsOf(p)
           }
-        case ResolvedAst.Predicate.Body.PositiveOverloaded(sym, terms, implicits, loc) => implicits.toSet
-        case ResolvedAst.Predicate.Body.Negative(sym, terms, loc) =>
-          terms.foldLeft(Set.empty[Symbol.VarSym]) {
-            case (xs, p) => xs ++ implicitsOf(p)
-          }
+        case ResolvedAst.Predicate.Body.Ambiguous(sym, polarity, terms, implicits, loc) => implicits.toSet
         case ResolvedAst.Predicate.Body.Filter(sym, terms, loc) => Set.empty
         case ResolvedAst.Predicate.Body.Loop(pat, term, loc) => Set.empty
       }

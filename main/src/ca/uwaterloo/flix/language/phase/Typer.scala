@@ -1033,11 +1033,11 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
     def infer(head: ResolvedAst.Predicate.Head, program: ResolvedAst.Program)(implicit genSym: GenSym): InferMonad[List[Type]] = head match {
       case ResolvedAst.Predicate.Head.True(loc) => Unification.liftM(Nil)
       case ResolvedAst.Predicate.Head.False(loc) => Unification.liftM(Nil)
-      case ResolvedAst.Predicate.Head.Positive(sym, terms, loc) =>
+      case ResolvedAst.Predicate.Head.Table(sym, terms, loc) =>
         val declaredTypes = getAttributeTypes(sym, program)
         Terms.Head.typecheck(terms, declaredTypes, loc, program)
 
-      case ResolvedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) =>
+      case ResolvedAst.Predicate.Head.Ambiguous(sym, terms, implicits, loc) =>
         val actualTypes = implicits.map(_.tvar)
         val declaredTypes = getAttributeTypes(sym, program)
 
@@ -1045,23 +1045,17 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
           r <- unifyM(actualTypes, declaredTypes, loc)
           _ <- seqM(terms.map(t => Expressions.infer(t, program)))
         } yield r
-
-      case ResolvedAst.Predicate.Head.Negative(sym, terms, loc) =>
-        val declaredTypes = getAttributeTypes(sym, program)
-        Terms.Head.typecheck(terms, declaredTypes, loc, program)
-
-      case ResolvedAst.Predicate.Head.NegativeOverloaded(sym, terms, implicits, loc) => ??? // TODO: To be removed
     }
 
     /**
       * Infers the type of the given body predicate.
       */
     def infer(body0: ResolvedAst.Predicate.Body, program: ResolvedAst.Program)(implicit genSym: GenSym): InferMonad[List[Type]] = body0 match {
-      case ResolvedAst.Predicate.Body.Positive(sym, terms, loc) =>
+      case ResolvedAst.Predicate.Body.Table(sym, polarity, terms, loc) =>
         val declaredTypes = getAttributeTypes(sym, program)
         Terms.Body.typecheck(terms, declaredTypes, loc, program)
 
-      case ResolvedAst.Predicate.Body.PositiveOverloaded(sym, terms, implicits, loc) =>
+      case ResolvedAst.Predicate.Body.Ambiguous(sym, polarity, terms, implicits, loc) =>
         val actualTypes = implicits.map(_.tvar)
         val declaredTypes = getAttributeTypes(sym, program)
 
@@ -1069,20 +1063,6 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
           r <- unifyM(actualTypes, declaredTypes, loc)
           _ <- seqM(terms.map(t => Patterns.infer(t, program)))
         } yield r
-
-      case ResolvedAst.Predicate.Body.Negative(sym, terms, loc) =>
-        val declaredTypes = getAttributeTypes(sym, program)
-        Terms.Body.typecheck(terms, declaredTypes, loc, program)
-
-      case ResolvedAst.Predicate.Body.NegativeOverloaded(sym, terms, implicits, loc) =>
-        val actualTypes = implicits.map(_.tvar)
-        val declaredTypes = getAttributeTypes(sym, program)
-
-        for {
-          r <- unifyM(actualTypes, declaredTypes, loc)
-          _ <- seqM(terms.map(t => Patterns.infer(t, program)))
-        } yield r
-
 
       case ResolvedAst.Predicate.Body.Filter(sym, terms, loc) =>
         val defn = program.definitions(sym)
@@ -1109,36 +1089,28 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
 
       case ResolvedAst.Predicate.Head.False(loc) => TypedAst.Predicate.Head.False(loc)
 
-      case ResolvedAst.Predicate.Head.Positive(sym, terms, loc) =>
+      case ResolvedAst.Predicate.Head.Table(sym, terms, loc) =>
         val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
         TypedAst.Predicate.Head.Table(sym, ts, loc)
 
-      case ResolvedAst.Predicate.Head.PositiveOverloaded(sym, terms, implicits, loc) =>
+      case ResolvedAst.Predicate.Head.Ambiguous(sym, terms, implicits, loc) =>
         val is = implicits zip getAttributeTypes(sym, program)
         val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
         TypedAst.Predicate.Head.Ambiguous(sym, ts, is, loc)
-
-      case ResolvedAst.Predicate.Head.Negative(sym, terms, loc) => ??? // TODO: To be removed.
-
-      case ResolvedAst.Predicate.Head.NegativeOverloaded(sym, terms, implicits, loc) => ??? // TODO: To be removed.
     }
 
     /**
       * Applies the given substitution `subst0` to the given body predicate `body0`.
       */
     def reassemble(body0: ResolvedAst.Predicate.Body, program: ResolvedAst.Program, subst0: Substitution): TypedAst.Predicate.Body = body0 match {
-      case ResolvedAst.Predicate.Body.Positive(sym, terms, loc) =>
+      case ResolvedAst.Predicate.Body.Table(sym, polarity, terms, loc) =>
         val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
-        TypedAst.Predicate.Body.Table(sym, Polarity.Positive, ts, loc)
+        TypedAst.Predicate.Body.Table(sym, polarity, ts, loc)
 
-      case ResolvedAst.Predicate.Body.PositiveOverloaded(sym, terms, implicits, loc) =>
+      case ResolvedAst.Predicate.Body.Ambiguous(sym, polarity, terms, implicits, loc) =>
         val is = implicits zip getAttributeTypes(sym, program)
         val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
-        TypedAst.Predicate.Body.Ambiguous(sym, Polarity.Positive, ts, is, loc)
-
-      case ResolvedAst.Predicate.Body.Negative(sym, terms, loc) => ??? // TODO: To be removed.
-
-      case ResolvedAst.Predicate.Body.NegativeOverloaded(sym, terms, implicits, loc) => ??? // TODO: To be removed.
+        TypedAst.Predicate.Body.Ambiguous(sym, polarity, ts, is, loc)
 
       case ResolvedAst.Predicate.Body.Filter(sym, terms, loc) =>
         val defn = program.definitions(sym)

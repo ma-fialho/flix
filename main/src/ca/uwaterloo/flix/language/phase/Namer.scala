@@ -600,22 +600,18 @@ object Namer extends Phase[WeededAst.Program, NamedAst.Program] {
       case WeededAst.Predicate.Head.False(loc) => NamedAst.Predicate.Head.False(loc).toSuccess
       case WeededAst.Predicate.Head.Positive(qname, terms, loc) =>
         @@(terms.map(t => Expressions.namer(t, headEnv0 ++ ruleEnv0, tenv0))) map {
-          case ts => NamedAst.Predicate.Head.Positive(qname, ts, loc)
-        }
-      case WeededAst.Predicate.Head.Negative(qname, terms, loc) =>
-        @@(terms.map(t => Expressions.namer(t, headEnv0 ++ ruleEnv0, tenv0))) map {
-          case ts => NamedAst.Predicate.Head.Negative(qname, ts, loc)
+          case ts => NamedAst.Predicate.Head.Table(qname, ts, loc)
         }
     }
 
     def namer(body: WeededAst.Predicate.Body, headEnv0: Map[String, Symbol.VarSym], ruleEnv0: Map[String, Symbol.VarSym], tenv0: Map[String, Type.Var])(implicit genSym: GenSym): Validation[NamedAst.Predicate.Body, NameError] = body match {
       case WeededAst.Predicate.Body.Positive(qname, terms, loc) =>
         val ts = terms.map(t => Patterns.namer(t, ruleEnv0))
-        NamedAst.Predicate.Body.Positive(qname, ts, loc).toSuccess
+        NamedAst.Predicate.Body.Table(qname, Polarity.Positive, ts, loc).toSuccess
 
       case WeededAst.Predicate.Body.Negative(qname, terms, loc) =>
         val ts = terms.map(t => Patterns.namer(t, ruleEnv0))
-        NamedAst.Predicate.Body.Negative(qname, ts, loc).toSuccess
+        NamedAst.Predicate.Body.Table(qname, Polarity.Negative, ts, loc).toSuccess
 
       case WeededAst.Predicate.Body.Filter(qname, terms, loc) =>
         @@(terms.map(t => Expressions.namer(t, headEnv0 ++ ruleEnv0, tenv0))) map {

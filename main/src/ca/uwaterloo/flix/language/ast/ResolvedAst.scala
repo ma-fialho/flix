@@ -197,14 +197,9 @@ object ResolvedAst {
 
       case class False(loc: SourceLocation) extends ResolvedAst.Predicate.Head
 
-      case class Positive(sym: Symbol.TableSym, terms: List[ResolvedAst.Expression], loc: SourceLocation) extends ResolvedAst.Predicate.Head
+      case class Table(sym: Symbol.TableSym, terms: List[ResolvedAst.Expression], loc: SourceLocation) extends ResolvedAst.Predicate.Head
 
-      case class PositiveOverloaded(sym: Symbol.TableSym, terms: List[ResolvedAst.Expression], implicits: List[Symbol.VarSym], loc: SourceLocation) extends ResolvedAst.Predicate.Head
-
-      case class Negative(sym: Symbol.TableSym, terms: List[ResolvedAst.Expression], loc: SourceLocation) extends ResolvedAst.Predicate.Head
-
-      case class NegativeOverloaded(sym: Symbol.TableSym, terms: List[ResolvedAst.Expression], implicits: List[Symbol.VarSym], loc: SourceLocation) extends ResolvedAst.Predicate.Head
-
+      case class Ambiguous(sym: Symbol.TableSym, terms: List[ResolvedAst.Expression], implicits: List[Symbol.VarSym], loc: SourceLocation) extends ResolvedAst.Predicate.Head
 
     }
 
@@ -212,13 +207,9 @@ object ResolvedAst {
 
     object Body {
 
-      case class Positive(sym: Symbol.TableSym, terms: List[ResolvedAst.Pattern], loc: SourceLocation) extends ResolvedAst.Predicate.Body
+      case class Table(sym: Symbol.TableSym, polarity: Polarity, terms: List[ResolvedAst.Pattern], loc: SourceLocation) extends ResolvedAst.Predicate.Body
 
-      case class PositiveOverloaded(sym: Symbol.TableSym, terms: List[ResolvedAst.Pattern], implicits: List[Symbol.VarSym], loc: SourceLocation) extends ResolvedAst.Predicate.Body
-
-      case class Negative(sym: Symbol.TableSym, terms: List[ResolvedAst.Pattern], loc: SourceLocation) extends ResolvedAst.Predicate.Body
-
-      case class NegativeOverloaded(sym: Symbol.TableSym, terms: List[ResolvedAst.Pattern], implicits: List[Symbol.VarSym], loc: SourceLocation) extends ResolvedAst.Predicate.Body
+      case class Ambiguous(sym: Symbol.TableSym, polarity: Polarity, terms: List[ResolvedAst.Pattern], implicits: List[Symbol.VarSym], loc: SourceLocation) extends ResolvedAst.Predicate.Body
 
       case class Filter(sym: Symbol.DefnSym, terms: List[ResolvedAst.Expression], loc: SourceLocation) extends ResolvedAst.Predicate.Body
 
