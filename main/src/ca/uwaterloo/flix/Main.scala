@@ -68,6 +68,7 @@ object Main {
       debug = cmdOpts.xdebug,
       documentor = cmdOpts.documentor,
       evaluation = if (cmdOpts.xinterpreter) Evaluation.Interpreted else Evaluation.Compiled,
+      implicits = cmdOpts.ximplicits,
       impure = cmdOpts.ximpure,
       optimize = cmdOpts.optimize,
       monitor = cmdOpts.monitor,
@@ -302,7 +303,7 @@ object Main {
         text("[experimental] enables output of debugging information.")
 
       // Ximplicits.
-      opt[Unit]("Ximplicits").action((_, c) => c.copy(ximpure = true)).
+      opt[Unit]("Ximplicits").action((_, c) => c.copy(ximplicits = true)).
         text("[experimental] enables implicit parameters.")
 
       // Ximpure.
