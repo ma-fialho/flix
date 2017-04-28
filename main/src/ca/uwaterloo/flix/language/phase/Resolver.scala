@@ -597,7 +597,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
       }
 
       // Introduce implicit variables for each declared attribute.
-      val implicits = (0 to numberOfArguments).toList.map {
+      val implicits = (0 to numberOfAttributes).toList.map {
         case _ => Symbol.freshImplicitVarSym("implicit")
       }
       ImplicitMatch.Ambiguous(explicits, implicits)
@@ -651,7 +651,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
       }
 
       // Introduce implicit variables for each declared attribute.
-      val implicits = (0 to numberOfArguments).toList.map {
+      val implicits = (0 to numberOfAttributes).toList.map {
         case _ => Symbol.freshImplicitVarSym("implicit")
       }
       ImplicitMatch.Ambiguous(explicits, implicits)

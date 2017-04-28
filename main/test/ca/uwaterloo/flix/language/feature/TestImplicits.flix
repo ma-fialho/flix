@@ -136,12 +136,42 @@ namespace TestImplicits {
             VarPointsToIn(baseVar, baseObj),
             HeapPointsToIn(baseObj, fld, targetObj).
 
-//        +---------------+-----------+---------------+-------------+
-//        | c             | s         | x             | o           |
-//        +---------------+-----------+---------------+-------------+
-//        | Ctx("Global") | Stm("s1") | Var("result") | Obj("obj2") |
-//        +---------------+-----------+---------------+-------------+
+        //+---------------+-----------+---------------+-------------+
+        //| c             | s         | x             | o           |
+        //+---------------+-----------+---------------+-------------+
+        //| Ctx("Global") | Stm("s1") | Var("result") | Obj("obj2") |
+        //+---------------+-----------+---------------+-------------+
 
     }
+
+
+    namespace RealWorld02 {
+        type Ctx = Ctx(Str)
+        type Stm = Stm(Str)
+        type Var = Var(Str)
+        type Obj = Obj(Str)
+        type Fld = Fld(Str)
+
+        rel VarPointsToIn(implicit c: Ctx, implicit s: Stm, x: Var, o: Obj)
+        rel VarPointsToOut(implicit c: Ctx, implicit s: Stm, x: Var, o: Obj)
+        rel CFG(s1: Stm, s2: Stm)
+
+        CFG(Stm("entry"), Stm("exit")).
+        VarPointsToOut(Ctx("Global"), Stm("entry"), Var("o1"), Obj("obj1")).
+        VarPointsToOut(Ctx("Global"), Stm("entry"), Var("o2"), Obj("obj2")).
+
+        VarPointsToIn(s2) :-
+            CFG(s1, s2),
+            VarPointsToOut(s1).
+
+        //+---------------+-------------+-----------+-------------+
+        //| c             | s           | x         | o           |
+        //+---------------+-------------+-----------+-------------+
+        //| Ctx("Global") | Stm("exit") | Var("o2") | Obj("obj2") |
+        //| Ctx("Global") | Stm("exit") | Var("o1") | Obj("obj1") |
+        //+---------------+-------------+-----------+-------------+
+
+    }
+
 
 }
