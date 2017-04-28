@@ -209,6 +209,26 @@ object WeederError {
   }
 
   /**
+    * An error raised to indicate that a specific feature was used but not enabled.
+    *
+    * @param txt a textual description.
+    * @param msg the message.
+    * @param tip the tip.
+    */
+  case class IllegalFeature(txt: String, msg: String, tip: String, loc: SourceLocation) extends WeederError {
+    val source: SourceInput = loc.source
+    val message: VirtualTerminal = {
+      val vt = new VirtualTerminal
+      vt << Line(kind, source.format) << NewLine
+      vt << ">> " << txt << NewLine
+      vt << NewLine
+      vt << Code(loc, msg) << NewLine
+      vt << NewLine
+      vt << Underline("Tip:") << " " << tip << NewLine
+    }
+  }
+
+  /**
     * An error raised to indicate that a float is out of bounds.
     *
     * @param loc the location where the illegal float occurs.

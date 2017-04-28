@@ -193,6 +193,7 @@ object Main {
                      verifier: Boolean = false,
                      xcore: Boolean = false,
                      xdebug: Boolean = false,
+                     ximplicits: Boolean = false,
                      ximpure: Boolean = false,
                      xinterpreter: Boolean = false,
                      xinvariants: Boolean = false,
@@ -299,6 +300,10 @@ object Main {
       // Xdebug.
       opt[Unit]("Xdebug").action((_, c) => c.copy(xdebug = true)).
         text("[experimental] enables output of debugging information.")
+
+      // Ximplicits.
+      opt[Unit]("Ximplicits").action((_, c) => c.copy(ximpure = true)).
+        text("[experimental] enables implicit parameters.")
 
       // Ximpure.
       opt[Unit]("Ximpure").action((_, c) => c.copy(ximpure = true)).

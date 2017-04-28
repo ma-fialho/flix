@@ -27,6 +27,7 @@ object Options {
     debug = false,
     documentor = false,
     evaluation = Evaluation.Compiled,
+    implicits = false,
     impure = false,
     invariants = false,
     monitor = false,
@@ -52,6 +53,7 @@ object Options {
   * @param debug        enables the emission of debugging information.
   * @param documentor   enables generation of flixdoc.
   * @param evaluation   selects the evaluation strategy.
+  * @param implicits    enables implicit parameters.
   * @param impure       enables impure functions.
   * @param invariants   enables checking of compiler invariants.
   * @param optimize     enables compiler optimizations.
@@ -63,7 +65,7 @@ object Options {
   * @param verbosity    selects the level of verbosity.
   * @param verifier     enables the verifier.
   */
-case class Options(core: Boolean, debug: Boolean, documentor: Boolean, evaluation: Evaluation, impure: Boolean, invariants: Boolean, optimize: Boolean, monitor: Boolean, quickchecker: Boolean, safe: Boolean, timeout: Duration, threads: Int, verbosity: Verbosity, verifier: Boolean)
+case class Options(core: Boolean, debug: Boolean, documentor: Boolean, evaluation: Evaluation, implicits: Boolean, impure: Boolean, invariants: Boolean, optimize: Boolean, monitor: Boolean, quickchecker: Boolean, safe: Boolean, timeout: Duration, threads: Int, verbosity: Verbosity, verifier: Boolean)
 
 /**
   * An option to control the level of verbosity.

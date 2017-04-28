@@ -162,6 +162,22 @@ object Weeder extends Phase[ParsedAst.Program, WeededAst.Program] {
           return EmptyRelation(ident.name, mkSL(sp1, sp2)).toFailure
 
         /*
+         * Check for `IllegalFeature(Implicits)`.
+         */
+        if (!flix.options.implicits) {
+          // TODO: Cleanup check, and also perform for lattice.
+          for (attr <- attrs) {
+            if (attr.isInstanceOf[ParsedAst.Attribute.Implicit]) {
+              val loc = mkSL(attr.sp1, attr.sp2)
+              val txt = "Illegal implicit attribute."
+              val msg = "illegal implicit"
+              val tip = "Enable implicits with --Ximplicits."
+              return IllegalFeature(txt, msg, tip, loc).toFailure
+            }
+          }
+        }
+
+        /*
          * Check for `DuplicateAttribute`.
          */
         checkDuplicateAttribute(attrs) map {
@@ -1089,7 +1105,7 @@ object Weeder extends Phase[ParsedAst.Program, WeededAst.Program] {
   /**
     * Checks that no attributes are repeated.
     */
-  private def checkDuplicateAttribute(attrs: Seq[ParsedAst.Attribute]): Validation[List[WeededAst.Attribute], WeederError] = {
+  private def checkDuplicateAttribute(attrs: Seq[ParsedAst.Attribute])(implicit flix: Flix): Validation[List[WeededAst.Attribute], WeederError] = {
     val seen = mutable.Map.empty[String, ParsedAst.Attribute]
     @@(attrs.map {
       case attr@ParsedAst.Attribute.Explicit(sp1, ident, tpe, sp2) => seen.get(ident.name) match {
