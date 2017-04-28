@@ -18,7 +18,7 @@ package ca.uwaterloo.flix.language.phase
 
 import ca.uwaterloo.flix.api.Flix
 import ca.uwaterloo.flix.language.GenSym
-import ca.uwaterloo.flix.language.ast.Ast.{AttributeMode, VariableMode}
+import ca.uwaterloo.flix.language.ast.Ast.Mode
 import ca.uwaterloo.flix.language.ast._
 import ca.uwaterloo.flix.language.errors.ResolutionError
 import ca.uwaterloo.flix.util.Validation._
@@ -471,8 +471,8 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         */
       private def implicitsOf(e0: ResolvedAst.Expression): Set[Symbol.VarSym] = e0 match {
         case ResolvedAst.Expression.Var(sym, loc) => sym.mode match {
-          case VariableMode.Explicit(implicitScope) => Set.empty
-          case VariableMode.Implicit => Set(sym)
+          case Mode.Explicit => Set.empty
+          case Mode.Implicit => Set(sym)
         }
         case _ => Set.empty
       }
@@ -530,8 +530,8 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         */
       private def implicitsOf(p0: ResolvedAst.Pattern): Set[Symbol.VarSym] = p0 match {
         case ResolvedAst.Pattern.Var(sym, tvar, loc) => sym.mode match {
-          case VariableMode.Explicit(implicitScope) => Set.empty
-          case VariableMode.Implicit => Set(sym)
+          case Mode.Explicit => Set.empty
+          case Mode.Implicit => Set(sym)
         }
         case _ => Set.empty
       }
@@ -565,8 +565,8 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
       }
 
       // Compute the number of explicit and implicit attributes.
-      val numberOfExplicit = t.attr.count(_.mode == AttributeMode.Explicit)
-      val numberOfImplicit = t.attr.count(_.mode == AttributeMode.Implicit)
+      val numberOfExplicit = t.attr.count(_.mode.isExplicit)
+      val numberOfImplicit = t.attr.count(_.mode.isImplicit)
 
       // Check if the number of actual arguments exactly match the number of explicit attributes.
       if (numberOfArguments == numberOfExplicit) {
@@ -575,9 +575,9 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         // Introduce implicit arguments at the appropriate positions.
         def pair(xs: List[NamedAst.Attribute], ys: List[ResolvedAst.Expression]): List[ResolvedAst.Expression] = xs match {
           case Nil => Nil
-          case NamedAst.Attribute(_, AttributeMode.Explicit, _, _) :: rs =>
+          case NamedAst.Attribute(_, Mode.Explicit, _, _) :: rs =>
             ys.head :: pair(rs, ys.tail)
-          case NamedAst.Attribute(_, AttributeMode.Implicit, _, _) :: rs =>
+          case NamedAst.Attribute(_, Mode.Implicit, _, _) :: rs =>
             val implicitSym = Symbol.freshImplicitVarSym("implicit")
             ResolvedAst.Expression.Var(implicitSym, implicitSym.loc) :: pair(rs, ys)
         }
@@ -620,8 +620,8 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
       }
 
       // Compute the number of explicit and implicit attributes.
-      val numberOfExplicit = t.attr.count(_.mode == AttributeMode.Explicit)
-      val numberOfImplicit = t.attr.count(_.mode == AttributeMode.Implicit)
+      val numberOfExplicit = t.attr.count(_.mode.isExplicit)
+      val numberOfImplicit = t.attr.count(_.mode.isImplicit)
 
       // Check if the number of actual arguments exactly match the number of explicit attributes.
       if (numberOfArguments == numberOfExplicit) {
@@ -630,9 +630,9 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         // Introduce implicit arguments at the appropriate positions.
         def pair(xs: List[NamedAst.Attribute], ys: List[ResolvedAst.Pattern]): List[ResolvedAst.Pattern] = xs match {
           case Nil => Nil
-          case NamedAst.Attribute(_, AttributeMode.Explicit, _, _) :: rs =>
+          case NamedAst.Attribute(_, Mode.Explicit, _, _) :: rs =>
             ys.head :: pair(rs, ys.tail)
-          case NamedAst.Attribute(_, AttributeMode.Implicit, _, _) :: rs =>
+          case NamedAst.Attribute(_, Mode.Implicit, _, _) :: rs =>
             val implicitSym = Symbol.freshImplicitVarSym("implicit")
             ResolvedAst.Pattern.Var(implicitSym, implicitSym.tvar, implicitSym.loc) :: pair(rs, ys)
         }

@@ -19,7 +19,7 @@ package ca.uwaterloo.flix.language.ast
 import java.lang.reflect.{Constructor, Field, Method}
 
 import ca.uwaterloo.flix.language.ast
-import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
+import ca.uwaterloo.flix.language.ast.Ast.Mode
 
 import scala.collection.immutable.List
 
@@ -238,7 +238,7 @@ object NamedAst {
 
   case class Scheme(quantifiers: List[ast.Type.Var], base: NamedAst.Type) extends NamedAst
 
-  case class Attribute(ident: Name.Ident, mode: AttributeMode, tpe: NamedAst.Type, loc: SourceLocation) extends NamedAst
+  case class Attribute(ident: Name.Ident, mode: Mode, tpe: NamedAst.Type, loc: SourceLocation) extends NamedAst
 
   case class Case(enum: Name.Ident, tag: Name.Ident, tpe: NamedAst.Type) extends NamedAst
 

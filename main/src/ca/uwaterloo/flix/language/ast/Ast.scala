@@ -142,32 +142,13 @@ object Ast {
   }
 
   /**
-    * The mode of an attribute.
+    * The mode of an attribute or variable.
     */
-  sealed trait AttributeMode
-
-  object AttributeMode {
-
-    /**
-      * An explicit attribute.
-      */
-    case object Explicit extends AttributeMode
-
-    /**
-      * An implicit attribute.
-      */
-    case object Implicit extends AttributeMode
-
-  }
-
-  /**
-    * The mode of a variable.
-    */
-  sealed trait VariableMode {
+  sealed trait Mode {
     /**
       * Returns `true` if `this` mode is implicit.
       */
-    def isImplicit: Boolean = this == VariableMode.Implicit
+    def isImplicit: Boolean = this == Mode.Implicit
 
     /**
       * Returns `true` if `this` mode is explicit.
@@ -175,19 +156,17 @@ object Ast {
     def isExplicit: Boolean = !isImplicit
   }
 
-  object VariableMode {
+  object Mode {
 
     /**
-      * An explicit variable.
-      *
-      * @param implicitScope whether the explicit parameter is in implicit scope.
+      * An explicit attribute or variable.
       */
-    case class Explicit(implicitScope: Boolean) extends VariableMode
+    case object Explicit extends Mode
 
     /**
-      * An implicit variable.
+      * An implicit attribute or variable.
       */
-    case object Implicit extends VariableMode
+    case object Implicit extends Mode
 
   }
 
