@@ -8,6 +8,9 @@ namespace TestImplicits {
         A(42, false).
 
         R(x) :- A(x).                               // equivalent to R(x, b) :- A(x, b).
+
+        // R(21, true).
+        // R(42, false).
     }
 
     namespace Test02 {
@@ -18,6 +21,9 @@ namespace TestImplicits {
         A(42, false).
 
         R(x, b) :- A(x, b).                         // direct style, no implicits
+
+        // R(21, true).
+        // R(42, false).
     }
 
     namespace Test03 {
@@ -28,6 +34,8 @@ namespace TestImplicits {
         A(42, 42, false).
 
         R(x) :- A(x, 21).                           // equivalent to R(x, b) :- A(x, 21, b).
+
+        // R(21, true).
     }
 
     namespace Test04 {
@@ -40,6 +48,8 @@ namespace TestImplicits {
         B(21, true).
 
         R(x) :- A(x), B(x).                         // equivalent to R(x) :- A(x, b), B(x, b).
+
+        // R(21, true).
     }
 
     namespace Test05 {
@@ -54,6 +64,8 @@ namespace TestImplicits {
         C(21, true).
 
         R(x) :- A(x), B(x), C(x).                   // equivalent to R(x) :- A(x, b), B(x, b), C(x, b).
+
+        // R(21, true).
     }
 
     namespace Test06 {
@@ -64,6 +76,9 @@ namespace TestImplicits {
         A(42, false, 'b').
 
         R(x) :- A(x).                               // equivalent to R(x, b, c) :- A(x, b, c).
+
+        // R(21, true, 'a').
+        // R(42, false, 'b').
     }
 
     namespace Test07 {
@@ -76,6 +91,8 @@ namespace TestImplicits {
         B(42, false, 'b').
 
         R(x) :- A(x), B(x).                         // equivalent to R(x, b, c) :- A(x, b, c), B(x, b, c).
+
+        // R(42, false, 'b').
     }
 
     namespace Test08 {
@@ -88,7 +105,13 @@ namespace TestImplicits {
         B(42, false, 'b').
 
         R(b) :- A(b), B(b).                         // equivalent to R(x, b, c) :- A(x, b, c), B(x, b, c).
+
+        // R(42, false, 'b').
     }
+
+
+
+
 
 
     namespace RealWorld01 {
