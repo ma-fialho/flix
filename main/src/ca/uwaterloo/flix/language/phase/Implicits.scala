@@ -19,10 +19,12 @@ package ca.uwaterloo.flix.language.phase
 import ca.uwaterloo.flix.api.Flix
 import ca.uwaterloo.flix.language.CompilationError
 import ca.uwaterloo.flix.language.ast.Ast.Mode
-import ca.uwaterloo.flix.language.ast.{Symbol, Type, TypedAst}
-import ca.uwaterloo.flix.util.{InternalCompilerException, Validation}
+import ca.uwaterloo.flix.language.ast.{SourceInput, Symbol, Type, TypedAst}
+import ca.uwaterloo.flix.util.Validation
 import ca.uwaterloo.flix.util.Validation._
 import ca.uwaterloo.flix.util.collection.MultiMap
+import ca.uwaterloo.flix.util.vt.VirtualString._
+import ca.uwaterloo.flix.util.vt.VirtualTerminal
 
 //
 // Open Questions:
@@ -56,23 +58,49 @@ import ca.uwaterloo.flix.util.collection.MultiMap
 object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
   /**
+    * An error raised to indicate that the implicit variable symbol `sym` belongs to two different equivalences classes.
+    *
+    * @param sym the implicit variable symbol.
+    * @param ec1 the 1st equivalence class.
+    * @param ec2 the 2nd equivalence class.
+    */
+  case class AmbiguousImplicit(sym: Symbol.VarSym, ec1: Set[Symbol.VarSym], ec2: Set[Symbol.VarSym]) extends CompilationError {
+    val kind: String = "Implicits"
+    val source: SourceInput = sym.loc.source
+    val message: VirtualTerminal = {
+      val vt = new VirtualTerminal
+      vt << Line(kind, source.format) << NewLine
+      vt << ">> Ambiguous implicit variable '" << Red(sym.text) << "'." << NewLine
+      vt << NewLine
+      vt << "The variable '" << Red(sym.text) << "' belongs to two different equivalence classes:" << NewLine
+      vt << NewLine
+      vt << Indent << "EC1: " << ec1.map(_.text).mkString(", ") << NewLine
+      vt << Indent << "EC2: " << ec1.map(_.text).mkString(", ") << NewLine
+    }
+  }
+
+  /**
     * Performs implicit resolution on the constraints in the given program.
     */
   def run(root: TypedAst.Root)(implicit flix: Flix): Validation[TypedAst.Root, CompilationError] = {
-    val strata = root.strata.map(implicify)
-    val result = root.copy(strata = strata)
-    result.toSuccess
+    for {
+      strata <- seqM(root.strata.map(implicify))
+    } yield root.copy(strata = strata)
   }
 
   /**
     * Performs implicit resolution on the given stratum `s`.
     */
-  def implicify(s: TypedAst.Stratum): TypedAst.Stratum = TypedAst.Stratum(s.constraints.map(implicify))
+  def implicify(s: TypedAst.Stratum): Validation[TypedAst.Stratum, CompilationError] = {
+    for {
+      constraints <- seqM(s.constraints.map(implicify))
+    } yield TypedAst.Stratum(constraints)
+  }
 
   /**
     * Performs implicit resolution on the given constraint `s`.
     */
-  def implicify(c: TypedAst.Constraint): TypedAst.Constraint = {
+  def implicify(c: TypedAst.Constraint): Validation[TypedAst.Constraint, CompilationError] = {
     // An equivalence relation on a single explicit parameters in implicit scope and a set implicit parameters.
     val m1 = new MultiMap[Symbol.VarSym, Symbol.VarSym]
 
@@ -114,14 +142,10 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     /*
      * Check for conflicts: It is possible that two implicit parameters belong to different equivalence classes.
      */
-    for (ec1 <- m1.values) {
-      for (sym1 <- ec1) {
-        for (ec2 <- m1.values) {
-          for (sym2 <- ec2) {
-            if (sym1 == sym2 && ec1 != ec2) {
-              throw InternalCompilerException(s"Symbol '$sym1' contained in two different ECs: '$ec1' and '$ec2'.")
-            }
-          }
+    for (ec1 <- m1.values; sym1 <- ec1) {
+      for (ec2 <- m1.values; sym2 <- ec2) {
+        if (sym1 == sym2 && ec1 != ec2) {
+          return AmbiguousImplicit(sym1, ec1, ec2).toFailure
         }
       }
     }
@@ -157,7 +181,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     }
 
     // Apply the substitution to the constraint.
-    replace(c, substitution)
+    replace(c, substitution).toSuccess
   }
 
   /**
