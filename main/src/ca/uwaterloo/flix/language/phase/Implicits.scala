@@ -20,7 +20,7 @@ import ca.uwaterloo.flix.api.Flix
 import ca.uwaterloo.flix.language.CompilationError
 import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
 import ca.uwaterloo.flix.language.ast.{Symbol, Type, TypedAst}
-import ca.uwaterloo.flix.util.Validation
+import ca.uwaterloo.flix.util.{InternalCompilerException, Validation}
 import ca.uwaterloo.flix.util.Validation._
 import ca.uwaterloo.flix.util.collection.MultiMap
 
@@ -91,7 +91,6 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
         for ((implicitSym, implicitType) <- implicitParamsOf(c.head)) {
           // Check that the types are compatible.
           if (explicitType == implicitType) {
-            // TODO: Check that implicitSym is not already unified with something else.
             m1.put(explicitSym, implicitSym)
           }
         }
@@ -105,8 +104,22 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
           for ((implicitSym, implicitType) <- implicitParamsOf(b)) {
             // Check that the types are compatible.
             if (explicitType == implicitType) {
-              // TODO: Check that implicitSym is not already unified with something else.
               m1.put(explicitSym, implicitSym)
+            }
+          }
+        }
+      }
+    }
+
+    /*
+     * Check for conflicts: It is possible that two implicit parameters belong to different equivalence classes.
+     */
+    for (ec1 <- m1.values) {
+      for (sym1 <- ec1) {
+        for (ec2 <- m1.values) {
+          for (sym2 <- ec2) {
+            if (sym1 == sym2 && ec1 != ec2) {
+              throw InternalCompilerException(s"Symbol '$sym1' contained in two different ECs: '$ec1' and '$ec2'.")
             }
           }
         }
