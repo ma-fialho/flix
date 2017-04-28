@@ -450,8 +450,8 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
             getHeadTermsWithImplicits(t, ts) match {
               case ImplicitMatch.Exact(terms) =>
                 ResolvedAst.Predicate.Head.Table(t.sym, terms, loc)
-              case ImplicitMatch.Overloaded(terms, implicits) =>
-                ResolvedAst.Predicate.Head.Ambiguous(t.sym, terms, implicits, loc)
+              case ImplicitMatch.Ambiguous(explicits, implicits) =>
+                ResolvedAst.Predicate.Head.Ambiguous(t.sym, explicits, implicits, loc)
             }
           }
       }
@@ -492,7 +492,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
             getBodyTermsWithImplicits(t, ts) match {
               case ImplicitMatch.Exact(terms) =>
                 ResolvedAst.Predicate.Body.Table(t.sym, polarity, terms, loc)
-              case ImplicitMatch.Overloaded(terms, implicits) => ResolvedAst.Predicate.Body.Ambiguous(t.sym, polarity, terms, implicits, loc)
+              case ImplicitMatch.Ambiguous(explicits, implicits) => ResolvedAst.Predicate.Body.Ambiguous(t.sym, polarity, explicits, implicits, loc)
             }
           }
 
@@ -544,7 +544,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
 
       case class Exact[A](terms: List[A]) extends ImplicitMatch[A]
 
-      case class Overloaded[A](terms: List[A], implicits: List[Symbol.VarSym]) extends ImplicitMatch[A]
+      case class Ambiguous[A](explicits: List[Symbol.VarSym], implicits: List[Symbol.VarSym]) extends ImplicitMatch[A]
 
     }
 
@@ -588,12 +588,16 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
 
       // Case 3: The actual number of arguments does not match
       // the number of attributes nor the number of explicit attributes.
+      val explicits = args.map {
+        case ResolvedAst.Expression.Var(sym, _) => sym
+        case _ => throw InternalCompilerException("Unexpected non-variable expression.") // TODO
+      }
 
       // Introduce implicit variables for each declared attribute.
       val implicits = (0 to numberOfArguments).toList.map {
         case _ => Symbol.freshImplicitVarSym("implicit")
       }
-      ImplicitMatch.Overloaded(args, implicits)
+      ImplicitMatch.Ambiguous(explicits, implicits)
     }
 
     /**
@@ -636,12 +640,16 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
 
       // Case 3: The actual number of arguments does not match
       // the number of attributes nor the number of explicit attributes.
+      val explicits = args.map {
+        case ResolvedAst.Pattern.Var(sym, _, _) => sym
+        case _ => throw InternalCompilerException("Unexpected non-variable expression.") // TODO
+      }
 
       // Introduce implicit variables for each declared attribute.
       val implicits = (0 to numberOfArguments).toList.map {
         case _ => Symbol.freshImplicitVarSym("implicit")
       }
-      ImplicitMatch.Overloaded(args, implicits)
+      ImplicitMatch.Ambiguous(explicits, implicits)
     }
 
   }

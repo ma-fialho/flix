@@ -250,8 +250,7 @@ object TypedAst {
 
       case class Table(sym: Symbol.TableSym, terms: List[TypedAst.Expression], loc: SourceLocation) extends TypedAst.Predicate.Head
 
-      // TODO: For simplicitly maybe we should change the type of terms to be variables only.
-      case class Ambiguous(sym: Symbol.TableSym, terms: List[TypedAst.Expression], implicits: List[(Symbol.VarSym, Type)], loc: SourceLocation) extends TypedAst.Predicate.Head
+      case class Ambiguous(sym: Symbol.TableSym, explicits: List[(Symbol.VarSym, Type)], implicits: List[(Symbol.VarSym, Type)], loc: SourceLocation) extends TypedAst.Predicate.Head
 
     }
 
@@ -261,7 +260,7 @@ object TypedAst {
 
       case class Table(sym: Symbol.TableSym, polarity: Polarity, terms: List[TypedAst.Pattern], loc: SourceLocation) extends TypedAst.Predicate.Body
 
-      case class Ambiguous(sym: Symbol.TableSym, polarity: Polarity, terms: List[TypedAst.Pattern], implicits: List[(Symbol.VarSym, Type)], loc: SourceLocation) extends TypedAst.Predicate.Body
+      case class Ambiguous(sym: Symbol.TableSym, polarity: Polarity, explicits: List[(Symbol.VarSym, Type)], implicits: List[(Symbol.VarSym, Type)], loc: SourceLocation) extends TypedAst.Predicate.Body
 
       case class Filter(sym: Symbol.DefnSym, terms: List[TypedAst.Expression], loc: SourceLocation) extends TypedAst.Predicate.Body
 

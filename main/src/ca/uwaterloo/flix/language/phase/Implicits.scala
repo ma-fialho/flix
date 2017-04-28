@@ -154,10 +154,8 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     assert(explicitSym.mode == AttributeMode.Explicit)
 
     h0 match {
-      case TypedAst.Predicate.Head.Ambiguous(_, terms, implicits, loc) => terms.exists {
-        // TODO: Replace terms by "explicits" which should be a list of variables.
-        case TypedAst.Expression.Var(sym, tpe, _) => sym == explicitSym
-        case _ => false
+      case TypedAst.Predicate.Head.Ambiguous(_, explicits, implicits, loc) => explicits.exists {
+        case (sym, tpe) => sym == explicitSym
       }
       case _ => false
     }
@@ -167,10 +165,8 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     * Returns `true` iff the given body predicate `b0` is ambiguous and contains the given `explicitSym`.
     */
   def occurs(explicitSym: Symbol.VarSym, b0: TypedAst.Predicate.Body): Boolean = b0 match {
-    case TypedAst.Predicate.Body.Ambiguous(_, polarity, terms, implicits, loc) => terms.exists {
-      // TODO: Replace terms by "explicits" which should be a list of variables.
-      case TypedAst.Pattern.Var(sym, tpe, _) => sym == explicitSym
-      case _ => false
+    case TypedAst.Predicate.Body.Ambiguous(_, polarity, explicits, implicits, loc) => explicits.exists {
+      case (sym, tpe) => sym == explicitSym
     }
     case _ => false
   }

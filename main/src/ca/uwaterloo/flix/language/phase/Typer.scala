@@ -1037,13 +1037,12 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
         val declaredTypes = getAttributeTypes(sym, program)
         Terms.Head.typecheck(terms, declaredTypes, loc, program)
 
-      case ResolvedAst.Predicate.Head.Ambiguous(sym, terms, implicits, loc) =>
+      case ResolvedAst.Predicate.Head.Ambiguous(sym, explicits, implicits, loc) =>
         val actualTypes = implicits.map(_.tvar)
         val declaredTypes = getAttributeTypes(sym, program)
 
         for {
           r <- unifyM(actualTypes, declaredTypes, loc)
-          _ <- seqM(terms.map(t => Expressions.infer(t, program)))
         } yield r
     }
 
@@ -1061,7 +1060,6 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
 
         for {
           r <- unifyM(actualTypes, declaredTypes, loc)
-          _ <- seqM(terms.map(t => Patterns.infer(t, program)))
         } yield r
 
       case ResolvedAst.Predicate.Body.Filter(sym, terms, loc) =>
@@ -1093,10 +1091,10 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
         val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
         TypedAst.Predicate.Head.Table(sym, ts, loc)
 
-      case ResolvedAst.Predicate.Head.Ambiguous(sym, terms, implicits, loc) =>
+      case ResolvedAst.Predicate.Head.Ambiguous(sym, explicits, implicits, loc) =>
         val is = implicits zip getAttributeTypes(sym, program)
-        val ts = terms.map(t => Expressions.reassemble(t, program, subst0))
-        TypedAst.Predicate.Head.Ambiguous(sym, ts, is, loc)
+        val es = explicits.map(sym => (sym, subst0(sym.tvar)))
+        TypedAst.Predicate.Head.Ambiguous(sym, es, is, loc)
     }
 
     /**
@@ -1107,10 +1105,10 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
         val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
         TypedAst.Predicate.Body.Table(sym, polarity, ts, loc)
 
-      case ResolvedAst.Predicate.Body.Ambiguous(sym, polarity, terms, implicits, loc) =>
+      case ResolvedAst.Predicate.Body.Ambiguous(sym, polarity, explicits, implicits, loc) =>
         val is = implicits zip getAttributeTypes(sym, program)
-        val ts = terms.map(t => Patterns.reassemble(t, program, subst0))
-        TypedAst.Predicate.Body.Ambiguous(sym, polarity, ts, is, loc)
+        val es = explicits.map(sym => (sym, subst0(sym.tvar)))
+        TypedAst.Predicate.Body.Ambiguous(sym, polarity, es, is, loc)
 
       case ResolvedAst.Predicate.Body.Filter(sym, terms, loc) =>
         val defn = program.definitions(sym)
