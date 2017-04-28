@@ -143,9 +143,6 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
       case (macc, subst) => macc ++ subst
     }
 
-    // TODO: Just for debugging.
-    println(substitution)
-
     // Apply the substitution to the constraint.
     replace(c, substitution)
   }

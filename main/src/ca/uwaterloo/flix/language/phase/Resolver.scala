@@ -446,11 +446,8 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
             t <- lookupTable(qname0, ns0, prog0)
             ts <- seqM(terms0.map(t => Expressions.resolve(t, ns0, prog0)))
           } yield {
-
-            // TODO: Get rid of f.
-            def f(sym: Symbol.VarSym): ResolvedAst.Expression = ResolvedAst.Expression.Var(sym, SourceLocation.Unknown)
-
-            getTermsWithImplicits(t, ts, f) match {
+            // TODO: Return Validation?
+            getHeadTermsWithImplicits(t, ts) match {
               case ImplicitMatch.Exact(terms) =>
                 ResolvedAst.Predicate.Head.Table(t.sym, terms, loc)
               case ImplicitMatch.Overloaded(terms, implicits) =>
@@ -491,16 +488,12 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
             t <- lookupTable(qname0, ns0, prog0)
             ts <- seqM(terms0.map(t => Patterns.resolve(t, ns0, prog0)))
           } yield {
-
-            // TODO: Get rid of
-            def f(sym: Symbol.VarSym): ResolvedAst.Pattern = ResolvedAst.Pattern.Var(sym, Type.freshTypeVar(), SourceLocation.Unknown)
-
-            getTermsWithImplicits(t, ts, f) match {
+            // TODO: Return Validation?
+            getBodyTermsWithImplicits(t, ts) match {
               case ImplicitMatch.Exact(terms) =>
                 ResolvedAst.Predicate.Body.Table(t.sym, polarity, terms, loc)
               case ImplicitMatch.Overloaded(terms, implicits) => ResolvedAst.Predicate.Body.Ambiguous(t.sym, polarity, terms, implicits, loc)
             }
-
           }
 
         case NamedAst.Predicate.Body.Filter(qname, terms, loc) =>
@@ -544,6 +537,7 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
       }
     }
 
+    // TODO: DOC
     sealed trait ImplicitMatch[A]
 
     object ImplicitMatch {
@@ -555,11 +549,9 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
     }
 
     /**
-      * Returns the terms of the given table `t` with arguments `args` with implicit parameters (if applicable).
+      * Returns the head terms for the given table `t` based on the arguments `args` with implicit variables appropriately inserted.
       */
-    // TODO: Decide whether it is better to have this be generic or to allow some duplication.
-    // TODO: This method is becoming quiet overloaded.
-    private def getTermsWithImplicits[A](t: NamedAst.Table, args: List[A], f: Symbol.VarSym => A)(implicit genSym: GenSym): ImplicitMatch[A] = {
+    private def getHeadTermsWithImplicits(t: NamedAst.Table, args: List[ResolvedAst.Expression])(implicit genSym: GenSym): ImplicitMatch[ResolvedAst.Expression] = {
       // Compute the number of actual arguments.
       val numberOfArguments = args.length
 
@@ -581,12 +573,61 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         // Case 2: Actual arguments match explicit arguments.
 
         // Introduce implicit arguments at the appropriate positions.
-        def pair(xs: List[NamedAst.Attribute], ys: List[A]): List[A] = xs match {
+        def pair(xs: List[NamedAst.Attribute], ys: List[ResolvedAst.Expression]): List[ResolvedAst.Expression] = xs match {
           case Nil => Nil
           case NamedAst.Attribute(_, AttributeMode.Explicit, _, _) :: rs =>
             ys.head :: pair(rs, ys.tail)
           case NamedAst.Attribute(_, AttributeMode.Implicit, _, _) :: rs =>
-            f(Symbol.freshImplicitVarSym("implicit")) :: pair(rs, ys)
+            val implicitSym = Symbol.freshImplicitVarSym("implicit")
+            ResolvedAst.Expression.Var(implicitSym, implicitSym.loc) :: pair(rs, ys)
+        }
+
+        val result = pair(t.attr, args)
+        return ImplicitMatch.Exact(result)
+      }
+
+      // Case 3: The actual number of arguments does not match
+      // the number of attributes nor the number of explicit attributes.
+
+      // Introduce implicit variables for each declared attribute.
+      val implicits = (0 to numberOfArguments).toList.map {
+        case _ => Symbol.freshImplicitVarSym("implicit")
+      }
+      ImplicitMatch.Overloaded(args, implicits)
+    }
+
+    /**
+      * Returns the body terms for the given table `t` based on the arguments `args` with implicit variables appropriately inserted.
+      */
+    private def getBodyTermsWithImplicits[A](t: NamedAst.Table, args: List[ResolvedAst.Pattern])(implicit genSym: GenSym): ImplicitMatch[ResolvedAst.Pattern] = {
+      // Compute the number of actual arguments.
+      val numberOfArguments = args.length
+
+      // Compute the number of declared attributes.
+      val numberOfAttributes = t.attr.length
+
+      // Check if the number of actual arguments exactly match the number of declared attributes.
+      if (numberOfArguments == numberOfAttributes) {
+        // Case 1: Exact match. Return the arguments unmodified.
+        return ImplicitMatch.Exact(args)
+      }
+
+      // Compute the number of explicit and implicit attributes.
+      val numberOfExplicit = t.attr.count(_.mode == AttributeMode.Explicit)
+      val numberOfImplicit = t.attr.count(_.mode == AttributeMode.Implicit)
+
+      // Check if the number of actual arguments exactly match the number of explicit attributes.
+      if (numberOfArguments == numberOfExplicit) {
+        // Case 2: Actual arguments match explicit arguments.
+
+        // Introduce implicit arguments at the appropriate positions.
+        def pair(xs: List[NamedAst.Attribute], ys: List[ResolvedAst.Pattern]): List[ResolvedAst.Pattern] = xs match {
+          case Nil => Nil
+          case NamedAst.Attribute(_, AttributeMode.Explicit, _, _) :: rs =>
+            ys.head :: pair(rs, ys.tail)
+          case NamedAst.Attribute(_, AttributeMode.Implicit, _, _) :: rs =>
+            val implicitSym = Symbol.freshImplicitVarSym("implicit")
+            ResolvedAst.Pattern.Var(implicitSym, implicitSym.tvar, implicitSym.loc) :: pair(rs, ys)
         }
 
         val result = pair(t.attr, args)
