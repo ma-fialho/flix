@@ -18,7 +18,7 @@ package ca.uwaterloo.flix.language.phase
 
 import ca.uwaterloo.flix.api.Flix
 import ca.uwaterloo.flix.language.GenSym
-import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
+import ca.uwaterloo.flix.language.ast.Ast.{AttributeMode, VariableMode}
 import ca.uwaterloo.flix.language.ast._
 import ca.uwaterloo.flix.language.errors.ResolutionError
 import ca.uwaterloo.flix.util.Validation._
@@ -471,8 +471,8 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         */
       private def implicitsOf(e0: ResolvedAst.Expression): Set[Symbol.VarSym] = e0 match {
         case ResolvedAst.Expression.Var(sym, loc) => sym.mode match {
-          case AttributeMode.Explicit => Set.empty
-          case AttributeMode.Implicit => Set(sym)
+          case VariableMode.Explicit(implicitScope) => Set.empty
+          case VariableMode.Implicit => Set(sym)
         }
         case _ => Set.empty
       }
@@ -530,8 +530,8 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         */
       private def implicitsOf(p0: ResolvedAst.Pattern): Set[Symbol.VarSym] = p0 match {
         case ResolvedAst.Pattern.Var(sym, tvar, loc) => sym.mode match {
-          case AttributeMode.Explicit => Set.empty
-          case AttributeMode.Implicit => Set(sym)
+          case VariableMode.Explicit(implicitScope) => Set.empty
+          case VariableMode.Implicit => Set(sym)
         }
         case _ => Set.empty
       }

@@ -18,7 +18,7 @@ package ca.uwaterloo.flix.language.phase
 
 import ca.uwaterloo.flix.api.Flix
 import ca.uwaterloo.flix.language.CompilationError
-import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
+import ca.uwaterloo.flix.language.ast.Ast.VariableMode
 import ca.uwaterloo.flix.language.ast.{Symbol, Type, TypedAst}
 import ca.uwaterloo.flix.util.{InternalCompilerException, Validation}
 import ca.uwaterloo.flix.util.Validation._
@@ -164,7 +164,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     * Returns `true` iff the given head predicate `h0` is ambiguous and contains the given `explicitSym`.
     */
   def occurs(explicitSym: Symbol.VarSym, h0: TypedAst.Predicate.Head): Boolean = {
-    assert(explicitSym.mode == AttributeMode.Explicit)
+    assert(explicitSym.mode.isExplicit)
 
     h0 match {
       case TypedAst.Predicate.Head.Ambiguous(_, explicits, implicits, loc) => explicits.exists {
@@ -188,14 +188,14 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     * Returns the unifiable explicit parameters along with their types of the given constraint `c`.
     */
   def explicitParamsInImplicitScope(c: TypedAst.Constraint): List[(Symbol.VarSym, Type)] = c.cparams.collect {
-    case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) if sym.mode == AttributeMode.Explicit => (sym, tpe)
+    case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) if sym.mode.isExplicit => (sym, tpe)
   }
 
   /**
     * Returns the implicit parameters along with their types of the given constraint `c`.
     */
   def implicitParamsOf(c: TypedAst.Constraint): List[(Symbol.VarSym, Type)] = c.cparams.collect {
-    case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) if sym.mode == AttributeMode.Implicit => (sym, tpe)
+    case TypedAst.ConstraintParam.RuleParam(sym, tpe, loc) if sym.mode == VariableMode.Implicit => (sym, tpe)
   }
 
   /**
@@ -207,8 +207,8 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     case TypedAst.Predicate.Head.Table(_, terms, loc) =>
       terms.foldLeft(Set.empty[(Symbol.VarSym, Type)]) {
         case (sacc, TypedAst.Expression.Var(sym, tpe, _)) => sym.mode match {
-          case AttributeMode.Implicit => sacc + ((sym, tpe))
-          case AttributeMode.Explicit => sacc
+          case VariableMode.Implicit => sacc + ((sym, tpe))
+          case VariableMode.Explicit(implicitScope) => sacc
         }
         case (sacc, _) => sacc // NB: *If* we allow user-written implicit parameters ?x then we must traverse the expression.
       }
@@ -222,8 +222,8 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     case TypedAst.Predicate.Body.Table(_, _, terms, _) =>
       terms.foldLeft(Set.empty[(Symbol.VarSym, Type)]) {
         case (sacc, TypedAst.Pattern.Var(sym, tpe, loc)) => sym.mode match {
-          case AttributeMode.Implicit => sacc + ((sym, tpe))
-          case AttributeMode.Explicit => sacc
+          case VariableMode.Implicit => sacc + ((sym, tpe))
+          case VariableMode.Explicit(implicitScope) => sacc
         }
         case (sacc, _) => sacc // NB: *If* we allow user-written implicit parameters ?x then we must traverse the pattern.
       }
@@ -243,7 +243,7 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
 
     // Try to select the explicit parameter (if any other).
     // Otherwise randomly select the first parameter.
-    val representative = ec.find(_.mode == AttributeMode.Explicit).getOrElse(ec.head)
+    val representative = ec.find(_.mode == VariableMode.Explicit).getOrElse(ec.head)
 
     // Map every other symbol to the representative.
     ec.foldLeft(Map.empty[Symbol.VarSym, Symbol.VarSym]) {

@@ -16,8 +16,6 @@
 
 package ca.uwaterloo.flix.language.ast
 
-import ca.uwaterloo.flix.language.ast.Ast.AttributeMode
-
 import scala.collection.immutable.Seq
 
 /**
