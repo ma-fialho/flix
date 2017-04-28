@@ -79,6 +79,8 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
     }
   }
 
+  // TODO: Introduce check to ensure that every head variable is bound in the body.
+
   /**
     * Performs implicit resolution on the constraints in the given program.
     */
@@ -109,12 +111,15 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
      */
 
     // Compute equivalences between an explicit parameter in implicit scope and implicit parameter.
+    // TODO: We should just get *ALL* explicit parameters.
     for ((explicitSym, explicitType) <- explicitParamsInImplicitScope(c)) {
       // Ensure reflexivity.
       m1.put(explicitSym, explicitSym)
 
       // Check if the explicit parameter occurs in the head predicate.
       if (occurs(explicitSym, c.head)) {
+        // TODO: Here we need to check if the param is available in implicit scope in c.head.
+
         // Attempt to unify the explicit parameter with the implicit parameters.
         for ((implicitSym, implicitType) <- implicitParamsOf(c.head)) {
           // Check that the types are compatible.
@@ -128,6 +133,8 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
       for (b <- c.body) {
         // Check if the explicit parameter occurs in the body predicate.
         if (occurs(explicitSym, b)) {
+          // TODO: Here we need to check if the param is available in implicit scope in b.
+
           // Attempt to unify the explicit parameter with the implicit parameters.
           for ((implicitSym, implicitType) <- implicitParamsOf(b)) {
             // Check that the types are compatible.
@@ -201,11 +208,15 @@ object Implicits extends Phase[TypedAst.Root, TypedAst.Root] {
   /**
     * Returns `true` iff the given body predicate `b0` is ambiguous and contains the given `explicitSym`.
     */
-  def occurs(explicitSym: Symbol.VarSym, b0: TypedAst.Predicate.Body): Boolean = b0 match {
-    case TypedAst.Predicate.Body.Ambiguous(_, polarity, explicits, implicits, loc) => explicits.exists {
-      case (sym, tpe) => sym == explicitSym
+  def occurs(explicitSym: Symbol.VarSym, b0: TypedAst.Predicate.Body): Boolean = {
+    assert(explicitSym.mode.isExplicit)
+
+    b0 match {
+      case TypedAst.Predicate.Body.Ambiguous(_, polarity, explicits, implicits, loc) => explicits.exists {
+        case (sym, tpe) => sym == explicitSym
+      }
+      case _ => false
     }
-    case _ => false
   }
 
   /**
