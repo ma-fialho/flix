@@ -588,6 +588,9 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
 
       // Case 3: The actual number of arguments does not match
       // the number of attributes nor the number of explicit attributes.
+
+      // TODO: Before case 3 we should check that the predicate has a specific annotation, e.g. @P(...) or implicify P(...)
+
       val explicits = args.map {
         case ResolvedAst.Expression.Var(sym, _) => sym
         case _ => throw InternalCompilerException("Unexpected non-variable expression.") // TODO
@@ -637,6 +640,8 @@ object Resolver extends Phase[NamedAst.Program, ResolvedAst.Program] {
         val result = pair(t.attr, args)
         return ImplicitMatch.Exact(result)
       }
+
+      // TODO: Before case 3 we should check that the predicate has a specific annotation, e.g. @P(...) or implicify P(...)
 
       // Case 3: The actual number of arguments does not match
       // the number of attributes nor the number of explicit attributes.
