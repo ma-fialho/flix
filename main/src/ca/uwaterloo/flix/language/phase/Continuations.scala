@@ -3,7 +3,7 @@ package ca.uwaterloo.flix.language.phase
 import ca.uwaterloo.flix.api.Flix
 import ca.uwaterloo.flix.language.ast.Ast.Modifiers
 import ca.uwaterloo.flix.language.ast.SimplifiedAst._
-import ca.uwaterloo.flix.language.ast.{SourceLocation, Symbol}
+import ca.uwaterloo.flix.language.ast.{SourceLocation, Symbol, Type}
 import ca.uwaterloo.flix.language.{CompilationError, GenSym}
 import ca.uwaterloo.flix.util.Validation._
 import ca.uwaterloo.flix.util.{InternalCompilerException, Validation}
@@ -95,15 +95,30 @@ object Continuations extends Phase[Root, Root] {
     case Expression.Binary(sop, op, exp1, exp2, tpe, loc) => exp0 // TODO
 
     case Expression.IfThenElse(exp1, exp2, exp3, tpe, loc) =>
+      //
+      // Evaluate the conditional expression `exp1` passing a lambda that
+      // selects the appropriate branch where to continue execution.
+      //
+
+      // Retrieve the argument and return type of the continuation `kont0`.
+      val kontArgumentType = getArgumentType(kont0.tpe)
+      val kontReturnType = getReturnType(kont0.tpe)
+
+      // Introduce a fresh variable symbol for the value of the conditional.
+      val freshCondSym = Symbol.freshVarSym("c")
+      val freshCondVar = Expression.Var(freshCondSym, Type.Bool, loc)
+
+      // Construct an expression that branches on the variable symbol and
+      // continues execution in the CPS converted version of the two branches.
       val e2 = visitExp(exp2, kont0)
       val e3 = visitExp(exp3, kont0)
+      val e = Expression.IfThenElse(freshCondVar, e2, e3, kontReturnType, loc)
 
-      val freshKontSym = Symbol.freshVarSym("k")
-      val kontVar = Expression.Var(freshKontSym, ???, loc)
-      val body = Expression.IfThenElse(kontVar, e2, e3, ???, loc)
-      val t = ???
-      val innerLambda = Expression.Lambda(List(FormalParam(freshKontSym, Modifiers.Empty, ???, loc)), body, t, loc)
-      visitExp(exp1, innerLambda)
+      // Constructs the lambda to pass as the continuation to the evaluation of the conditional.
+      val lambda = mkLambda(freshCondSym, Type.Bool, e)
+
+      // Recurse on the conditional.
+      visitExp(exp1, lambda)
 
     case Expression.Branch(exp, branches, tpe, loc) => exp0 // TODO
 
@@ -166,8 +181,34 @@ object Continuations extends Phase[Root, Root] {
     * Returns an apply expression that applies the given continuation `kont0` to the value or variable expression `exp0`.
     */
   private def mkApplyCont(kont0: Expression, exp0: Expression) = {
-    // TODO: Need return type...
+    val kontReturnType = getReturnType(kont0.tpe)
     Expression.Apply(kont0, List(exp0), kont0.tpe, SourceLocation.Generated)
+  }
+
+  /**
+    * Returns a lambda expression with the given symbol `sym` as a formal parameter,
+    * the given type `argType` as its argument type and the given body `exp`.
+    */
+  def mkLambda(sym: Symbol.VarSym, argType: Type, exp: Expression): Expression = {
+    val loc = exp.loc
+    val fparam = FormalParam(sym, Modifiers.Empty, argType, loc)
+    Expression.Lambda(List(fparam), exp, Type.mkArrow(argType, exp.tpe), loc)
+  }
+
+  /**
+    * Returns the argument type of the given type `tpe` which must be an arrow type.
+    */
+  private def getArgumentType(tpe: Type): Type = {
+    assert(tpe.isArrow)
+    tpe.typeArguments.head
+  }
+
+  /**
+    * Returns the return type of the given type `tpe` which must be an arrow type.
+    */
+  private def getReturnType(tpe: Type): Type = {
+    assert(tpe.isArrow)
+    tpe.typeArguments.last
   }
 
 }
