@@ -1,6 +1,7 @@
 package ca.uwaterloo.flix.language.phase
 
 import ca.uwaterloo.flix.api.Flix
+import ca.uwaterloo.flix.language.ast.Ast.Modifiers
 import ca.uwaterloo.flix.language.ast.SimplifiedAst._
 import ca.uwaterloo.flix.language.ast.{SourceLocation, Symbol}
 import ca.uwaterloo.flix.language.{CompilationError, GenSym}
@@ -93,7 +94,16 @@ object Continuations extends Phase[Root, Root] {
 
     case Expression.Binary(sop, op, exp1, exp2, tpe, loc) => exp0 // TODO
 
-    case Expression.IfThenElse(exp1, exp2, exp3, tpe, loc) => exp0 // TODO
+    case Expression.IfThenElse(exp1, exp2, exp3, tpe, loc) =>
+      val e2 = visitExp(exp2, kont0)
+      val e3 = visitExp(exp3, kont0)
+
+      val freshKontSym = Symbol.freshVarSym("k")
+      val kontVar = Expression.Var(freshKontSym, ???, loc)
+      val body = Expression.IfThenElse(kontVar, e2, e3, ???, loc)
+      val t = ???
+      val innerLambda = Expression.Lambda(List(FormalParam(freshKontSym, Modifiers.Empty, ???, loc)), body, t, loc)
+      visitExp(exp1, innerLambda)
 
     case Expression.Branch(exp, branches, tpe, loc) => exp0 // TODO
 
@@ -156,6 +166,7 @@ object Continuations extends Phase[Root, Root] {
     * Returns an apply expression that applies the given continuation `kont0` to the value or variable expression `exp0`.
     */
   private def mkApplyCont(kont0: Expression, exp0: Expression) = {
+    // TODO: Need return type...
     Expression.Apply(kont0, List(exp0), kont0.tpe, SourceLocation.Generated)
   }
 
