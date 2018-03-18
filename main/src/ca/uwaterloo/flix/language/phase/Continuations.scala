@@ -30,8 +30,9 @@ object Continuations extends Phase[Root, Root] {
 
 
   def visitDefn(defn: Def)(implicit genSym: GenSym): Def = {
-    // TODO
-    val kont = Expression.Var(Symbol.freshVarSym(), null, null)
+    // TODO: Figure out what type to pass here...
+    val tpe = defn.exp.tpe
+    val kont = mkIdentity(tpe)
 
     visitExp(defn.exp, kont)
 
@@ -178,11 +179,15 @@ object Continuations extends Phase[Root, Root] {
   }
 
   /**
-    * Returns an apply expression that applies the given continuation `kont0` to the value or variable expression `exp0`.
+    * Returns the identity lambda for the given type `tpe`.
     */
-  private def mkApplyCont(kont0: Expression, exp0: Expression) = {
-    val kontReturnType = getReturnType(kont0.tpe)
-    Expression.Apply(kont0, List(exp0), kont0.tpe, SourceLocation.Generated)
+  def mkIdentity(tpe: Type)(implicit genSym: GenSym): Expression = {
+    val loc = SourceLocation.Generated
+
+    val freshSym = Symbol.freshVarSym()
+    val freshVar = Expression.Var(freshSym, tpe, loc)
+    val fparam = FormalParam(freshSym, Modifiers.Empty, tpe, loc)
+    Expression.Lambda(List(fparam), freshVar, Type.mkArrow(tpe, tpe), loc)
   }
 
   /**
@@ -193,6 +198,14 @@ object Continuations extends Phase[Root, Root] {
     val loc = exp.loc
     val fparam = FormalParam(sym, Modifiers.Empty, argType, loc)
     Expression.Lambda(List(fparam), exp, Type.mkArrow(argType, exp.tpe), loc)
+  }
+
+  /**
+    * Returns an apply expression that applies the given continuation `kont0` to the value or variable expression `exp0`.
+    */
+  private def mkApplyCont(kont0: Expression, exp0: Expression) = {
+    val kontReturnType = getReturnType(kont0.tpe)
+    Expression.Apply(kont0, List(exp0), kont0.tpe, SourceLocation.Generated)
   }
 
   /**
