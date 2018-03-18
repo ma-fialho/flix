@@ -102,7 +102,6 @@ object Continuations extends Phase[Root, Root] {
       //
 
       // Retrieve the argument and return type of the continuation `kont0`.
-      val kontArgumentType = getArgumentType(kont0.tpe)
       val kontReturnType = getReturnType(kont0.tpe)
 
       // Introduce a fresh variable symbol for the value of the conditional.
@@ -129,7 +128,25 @@ object Continuations extends Phase[Root, Root] {
 
     case Expression.LetRec(sym, exp1, exp2, tpe, loc) => exp0 // TODO
 
-    case Expression.Is(sym, tag, exp, loc) => exp0 // TODO
+    case Expression.Is(sym, tag, exp, loc) =>
+      // TODO: Refactor together with IfThenElse to extract the most important parts.
+      //
+      // Evaluates the `exp` expression passing a lambda that
+      // performs the tag test on the result and returns a boolean.
+      //
+
+      // Retrieve the argument and return type of the continuation `kont0`.
+      val kontReturnType = getReturnType(kont0.tpe)
+
+      // Introduce a fresh variable symbol for the result of `exp`.
+      val freshSym = Symbol.freshVarSym("r")
+      val freshVar = Expression.Var(freshSym, Type.Bool, loc)
+
+      // Constructs the new continuation.
+      val innerExp = mkApplyCont(kont0, Expression.Is(sym, tag, freshVar, loc))
+      val lambda = mkLambda(freshSym, kontReturnType, innerExp)
+
+      visitExp(exp, lambda)
 
     case Expression.Tag(enum, tag, exp, tpe, loc) => exp0 // TODO
 
