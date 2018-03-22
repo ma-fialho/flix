@@ -34,7 +34,7 @@ object Continuations extends Phase[Root, Root] {
     val tpe = defn.exp.tpe
     val kont = mkIdentity(tpe)
 
-    visitExp(defn.exp, kont)
+    visitExp(defn.exp, kont, tpe)
 
     null // TODO
   }
@@ -42,14 +42,14 @@ object Continuations extends Phase[Root, Root] {
   /**
     * Transforms the given expression `exp0` into continuation passing style with the given continuation `kont0`.
     */
-  def visitExp(exp0: Expression, kont0: Expression)(implicit genSym: GenSym): Expression = exp0 match {
+  def visitExp(exp0: Expression, kont0: Expression.Lambda, kont0Type: Type)(implicit genSym: GenSym): Expression = exp0 match {
     //
-    // Unit. A value, apply the continuation.
+    // Unit. Apply `kont0` to the value.
     //
     case Expression.Unit => mkApplyCont(kont0, exp0)
 
     //
-    // True. A value, apply the continuation.
+    // True. Apply `kont0` to the value.
     //
     case Expression.True => mkApplyCont(kont0, exp0)
 
@@ -101,24 +101,21 @@ object Continuations extends Phase[Root, Root] {
       // selects the appropriate branch where to continue execution.
       //
 
-      // Retrieve the argument and return type of the continuation `kont0`.
-      val kontReturnType = getReturnType(kont0.tpe)
-
-      // Introduce a fresh variable symbol for the value of the conditional.
-      val freshCondSym = Symbol.freshVarSym("c")
+      // Introduce a fresh variable symbol for the lambda.
+      val freshCondSym = Symbol.freshVarSym("r")
       val freshCondVar = Expression.Var(freshCondSym, Type.Bool, loc)
 
       // Construct an expression that branches on the variable symbol and
-      // continues execution in the CPS converted version of the two branches.
-      val e2 = visitExp(exp2, kont0)
-      val e3 = visitExp(exp3, kont0)
-      val e = Expression.IfThenElse(freshCondVar, e2, e3, kontReturnType, loc)
+      // continues execution in the CPS converted version of one of the two branches.
+      val e2 = visitExp(exp2, kont0, kont0Type)
+      val e3 = visitExp(exp3, kont0, kont0Type)
+      val e = Expression.IfThenElse(freshCondVar, e2, e3, kont0Type, loc)
 
       // Constructs the lambda to pass as the continuation to the evaluation of the conditional.
       val lambda = mkLambda(freshCondSym, Type.Bool, e)
 
       // Recurse on the conditional.
-      visitExp(exp1, lambda)
+      visitExp(exp1, lambda, kont0Type)
 
     case Expression.Branch(exp, branches, tpe, loc) => exp0 // TODO
 
@@ -129,28 +126,19 @@ object Continuations extends Phase[Root, Root] {
     case Expression.LetRec(sym, exp1, exp2, tpe, loc) => exp0 // TODO
 
     case Expression.Is(sym, tag, exp, loc) =>
-      // TODO: Refactor together with IfThenElse to extract the most important parts.
-      //
-      // Evaluates the `exp` expression passing a lambda that
-      // performs the tag test on the result and returns a boolean.
-      //
+      transform(exp, kont0) {
+        case freshVarExp => Expression.Is(sym, tag, freshVarExp, loc)
+      }
 
-      // Retrieve the argument and return type of the continuation `kont0`.
-      val kontReturnType = getReturnType(kont0.tpe)
+    case Expression.Tag(sym, tag, exp, tpe, loc) =>
+      transform(exp, kont0) {
+        case freshVarExp => Expression.Tag(sym, tag, freshVarExp, tpe, loc)
+      }
 
-      // Introduce a fresh variable symbol for the result of `exp`.
-      val freshSym = Symbol.freshVarSym("r")
-      val freshVar = Expression.Var(freshSym, Type.Bool, loc)
-
-      // Constructs the new continuation.
-      val innerExp = mkApplyCont(kont0, Expression.Is(sym, tag, freshVar, loc))
-      val lambda = mkLambda(freshSym, kontReturnType, innerExp)
-
-      visitExp(exp, lambda)
-
-    case Expression.Tag(enum, tag, exp, tpe, loc) => exp0 // TODO
-
-    case Expression.Untag(sym, tag, exp, tpe, loc) => exp0 // TODO
+    case Expression.Untag(sym, tag, exp, tpe, loc) =>
+      transform(exp, kont0) {
+        case freshVarExp => Expression.Untag(sym, tag, freshVarExp, tpe, loc)
+      }
 
     case Expression.Index(exp, offset, tpe, loc) => exp0 // TODO
 
@@ -164,17 +152,26 @@ object Continuations extends Phase[Root, Root] {
 
     case Expression.ArrayStore(base, index, value, tpe, loc) => exp0 // TODO
 
-    case Expression.Ref(exp, tpe, loc) => exp0 // TODO
+    case Expression.Ref(exp, tpe, loc) =>
+      transform(exp, kont0) {
+        case freshVarExp => Expression.Ref(freshVarExp, tpe, loc)
+      }
 
-    case Expression.Deref(exp, tpe, loc) => exp0 // TODO
+    case Expression.Deref(exp, tpe, loc) =>
+      transform(exp, kont0) {
+        case freshVarExp => Expression.Deref(freshVarExp, tpe, loc)
+      }
 
-    case Expression.Assign(exp1, exp2, tpe, loc) => exp0 // TODO
+    case Expression.Assign(exp1, exp2, tpe, loc) =>
+      transform2(exp1, exp2, kont0) {
+        case (freshVarExp1, freshVarExp2) => Expression.Assign(freshVarExp1, freshVarExp2, tpe, loc)
+      }
 
     case Expression.HandleWith(exp, bindings, tpe, loc) => exp0 // TODO
 
-    case Expression.Existential(params, exp, loc) => exp0 // TODO
+    case Expression.Existential(fparam, exp, loc) => exp0 // TODO
 
-    case Expression.Universal(params, exp, loc) => exp0 // TODO
+    case Expression.Universal(fparam, exp, loc) => exp0 // TODO
 
     case Expression.TryCatch(exp, rules, tpe, eff, loc) => exp0 // TODO
 
@@ -196,9 +193,53 @@ object Continuations extends Phase[Root, Root] {
   }
 
   /**
+    * Performs CPS transformation on the given `base` expression.
+    *
+    * Introduces a fresh continuation, determined by the `inner` function, to handle the result.
+    *
+    * Applies the continuation `kont0` to the result of the `inner` function.
+    */
+  private def transform(base: Expression, kont0: Expression)(inner: Expression.Var => Expression): Expression = {
+    // Retrieve the return type of the continuation.
+    val kontReturnType = getReturnType(kont0.tpe)
+
+    // Introduce a fresh variable symbol for the lambda.
+    val freshSym = Symbol.freshVarSym("r")
+    val freshVar = Expression.Var(freshSym, base.tpe, base.loc)
+
+    // Constructs the lambda (the new continuation).
+    val inner = mkApplyCont(kont0, inner(freshVar))
+    val lambda = mkLambda(freshSym, base.tpe, inner)
+
+    visitExp(base, lambda, kontReturnType)
+  }
+
+  private def transform2(exp1: Expression, exp2: Expression, kont0: Expression)(inner: (Expression.Var, Expression.Var) => Expression): Expression = {
+    // Retrieve the return type of the continuation.
+    val kontReturnType = getReturnType(kont0.tpe)
+
+    // Introduce a fresh variable symbol for the lambda.
+    val freshSym1 = Symbol.freshVarSym("r")
+    val freshVar1 = Expression.Var(freshSym1, exp1.tpe, exp1.loc)
+
+    // Introduce a fresh variable symbol for the lambda.
+    val freshSym2 = Symbol.freshVarSym("r")
+    val freshVar2 = Expression.Var(freshSym2, exp2.tpe, exp2.loc)
+
+    // TODO: Verify
+
+    val inner = mkApplyCont(kont0, inner(freshVar1, freshVar2))
+    val lambda2 = visitExp(exp2, mkLambda(freshSym2, exp2.tpe, inner), kontReturnType)
+    val lambda1 = mkLambda(freshSym1, exp1.tpe, lambda2)
+
+    visitExp(exp1, lambda1, kontReturnType)
+  }
+
+
+    /**
     * Returns the identity lambda for the given type `tpe`.
     */
-  def mkIdentity(tpe: Type)(implicit genSym: GenSym): Expression = {
+  private def mkIdentity(tpe: Type)(implicit genSym: GenSym): Expression.Lambda = {
     val loc = SourceLocation.Generated
 
     val freshSym = Symbol.freshVarSym()
@@ -211,7 +252,7 @@ object Continuations extends Phase[Root, Root] {
     * Returns a lambda expression with the given symbol `sym` as a formal parameter,
     * the given type `argType` as its argument type and the given body `exp`.
     */
-  def mkLambda(sym: Symbol.VarSym, argType: Type, exp: Expression): Expression = {
+  private def mkLambda(sym: Symbol.VarSym, argType: Type, exp: Expression): Expression.Lambda = {
     val loc = exp.loc
     val fparam = FormalParam(sym, Modifiers.Empty, argType, loc)
     Expression.Lambda(List(fparam), exp, Type.mkArrow(argType, exp.tpe), loc)
