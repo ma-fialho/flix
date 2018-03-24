@@ -199,7 +199,7 @@ object Continuations extends Phase[Root, Root] {
     *
     * Applies the continuation `kont0` to the result of the `inner` function.
     */
-  private def transform(base: Expression, kont0: Expression)(inner: Expression.Var => Expression): Expression = {
+  private def transform(base: Expression, kont0: Expression)(inner: Expression.Var => Expression)(implicit genSym: GenSym): Expression = {
     // Retrieve the return type of the continuation.
     val kontReturnType = getReturnType(kont0.tpe)
 
@@ -208,13 +208,13 @@ object Continuations extends Phase[Root, Root] {
     val freshVar = Expression.Var(freshSym, base.tpe, base.loc)
 
     // Constructs the lambda (the new continuation).
-    val inner = mkApplyCont(kont0, inner(freshVar))
-    val lambda = mkLambda(freshSym, base.tpe, inner)
+    val innerExp = mkApplyCont(kont0, inner(freshVar))
+    val lambda = mkLambda(freshSym, base.tpe, innerExp)
 
     visitExp(base, lambda, kontReturnType)
   }
 
-  private def transform2(exp1: Expression, exp2: Expression, kont0: Expression)(inner: (Expression.Var, Expression.Var) => Expression): Expression = {
+  private def transform2(exp1: Expression, exp2: Expression, kont0: Expression)(inner: (Expression.Var, Expression.Var) => Expression)(implicit genSym: GenSym): Expression = {
     // Retrieve the return type of the continuation.
     val kontReturnType = getReturnType(kont0.tpe)
 
@@ -228,8 +228,8 @@ object Continuations extends Phase[Root, Root] {
 
     // TODO: Verify
 
-    val inner = mkApplyCont(kont0, inner(freshVar1, freshVar2))
-    val lambda2 = visitExp(exp2, mkLambda(freshSym2, exp2.tpe, inner), kontReturnType)
+    val innerExp = mkApplyCont(kont0, inner(freshVar1, freshVar2))
+    val lambda2 = visitExp(exp2, mkLambda(freshSym2, exp2.tpe, innerExp), kontReturnType)
     val lambda1 = mkLambda(freshSym1, exp1.tpe, lambda2)
 
     visitExp(exp1, lambda1, kontReturnType)
