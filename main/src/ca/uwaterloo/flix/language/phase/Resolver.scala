@@ -374,10 +374,11 @@ object Resolver extends Phase[NamedAst.Root, ResolvedAst.Program] {
         }
 
         case NamedAst.Expression.Def(qname, tvar, loc) =>
-          lookupQName(qname, ns0, prog0) map {
-            case LookupResult.Def(sym) => ResolvedAst.Expression.Def(sym, tvar, loc)
-            case LookupResult.Eff(sym) => ResolvedAst.Expression.Eff(sym, tvar, loc)
-            case LookupResult.Sig(sym) => ResolvedAst.Expression.Sig(sym, tvar, loc)
+          lookupQName(qname, ns0, prog0) flatMap {
+            case LookupResult.Def(sym) => ResolvedAst.Expression.Def(sym, tvar, loc).toSuccess
+            case LookupResult.Eff(sym) => ResolvedAst.Expression.Eff(sym, tvar, loc).toSuccess
+            case LookupResult.Sig(sym) => ResolvedAst.Expression.Sig(sym, tvar, loc).toSuccess
+            case LookupResult.Res(qn) => getReservedExp(qn, ns0, loc)
           }
 
         case NamedAst.Expression.Hole(name, tpe, loc) =>
@@ -877,6 +878,7 @@ object Resolver extends Phase[NamedAst.Root, ResolvedAst.Program] {
               case LookupResult.Def(sym) => ResolvedAst.Predicate.Body.Filter(sym, ts, loc)
               case LookupResult.Eff(sym) => throw InternalCompilerException(s"Unexpected effect here: ${sym.toString}")
               case LookupResult.Sig(sym) => throw InternalCompilerException(s"Unexpected signature here: ${sym.toString}")
+              case LookupResult.Res(qn) => throw InternalCompilerException(s"Unexpected reserved here: ${qn.toString}")
             }
           }
 
@@ -991,12 +993,20 @@ object Resolver extends Phase[NamedAst.Root, ResolvedAst.Program] {
 
     case class Sig(sym: Symbol.SigSym) extends LookupResult
 
+    case class Res(name: Name.QName) extends LookupResult
+
   }
 
   /**
     * Finds the definition with the qualified name `qname` in the namespace `ns0`.
     */
   def lookupQName(qname: Name.QName, ns0: Name.NName, prog0: NamedAst.Root): Validation[LookupResult, ResolutionError] = {
+    // Check if the name is reserved.
+    if (qname.ident.name.startsWith("__") && qname.ident.name.endsWith("__")) {
+      return LookupResult.Res(qname).toSuccess
+    }
+
+    // Otherwise lookup the name as a definition, effect, and signature.
     val defOpt = tryLookupDef(qname, ns0, prog0)
     val effOpt = tryLookupEff(qname, ns0, prog0)
     val sigOpt = tryLookupSig(qname, ns0, prog0)
@@ -1674,5 +1684,33 @@ object Resolver extends Phase[NamedAst.Root, ResolvedAst.Program] {
     val idents = parts.map(s => Name.Ident(sp1, s, sp2))
     Name.NName(sp1, idents, sp2)
   }
+
+  /**
+    * Returns the expression corresponding to the given reserved `qname`.
+    */
+  private def getReservedExp(qname: Name.QName, ns: Name.NName, loc: SourceLocation)(implicit genSym: GenSym): Validation[ResolvedAst.Expression, ResolutionError] =
+    qname.ident.name match {
+      case "__LINE__" => ResolvedAst.Expression.Str(loc.beginLine.toString, loc).toSuccess
+
+      case "__INT32_SUB__" =>
+        val x = Symbol.freshVarSym()
+        val y = Symbol.freshVarSym()
+        val e1 = ResolvedAst.Expression.Var(x, Type.freshTypeVar(), loc)
+        val e2 = ResolvedAst.Expression.Var(y, Type.freshTypeVar(), loc)
+        val eb = ResolvedAst.Expression.Binary(BinaryOperator.Minus, e1, e2, Type.freshTypeVar(), loc)
+        mkLambda(List(x, y), eb, loc).toSuccess
+
+      case _ => ResolutionError.UndefinedName(qname, ns, loc).toFailure
+    }
+
+  /**
+    * Returns a curried lambda expression for the given arguments `args` with `exp` as its body.
+    */
+  private def mkLambda(args: List[Symbol.VarSym], exp: ResolvedAst.Expression, loc: SourceLocation)(implicit genSym: GenSym): ResolvedAst.Expression =
+    args.foldRight(exp) {
+      case (sym, acc) =>
+        val fparam = ResolvedAst.FormalParam(sym, Ast.Modifiers.Empty, Type.freshTypeVar(), loc)
+        ResolvedAst.Expression.Lambda(fparam, acc, Type.freshTypeVar(), loc)
+    }
 
 }

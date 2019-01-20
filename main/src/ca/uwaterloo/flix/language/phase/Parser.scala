@@ -1205,7 +1205,7 @@ class Parser(val source: Source) extends org.parboiled2.Parser {
       * A lowercase identifier is a lowercase letter optionally followed by any letter, underscore, or prime.
       */
     def LowerCaseName: Rule1[Name.Ident] = rule {
-      SP ~ capture(LowerLetter ~ zeroOrMore(LegalLetter)) ~ SP ~> Name.Ident
+      SP ~ capture((LowerLetter | "__") ~ zeroOrMore(LegalLetter)) ~ SP ~> Name.Ident
     }
 
     /**
