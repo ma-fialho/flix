@@ -1691,6 +1691,37 @@ object Resolver extends Phase[NamedAst.Root, ResolvedAst.Program] {
   private def getReservedExp(qname: Name.QName, ns: Name.NName, loc: SourceLocation)(implicit genSym: GenSym): Validation[ResolvedAst.Expression, ResolutionError] =
     qname.ident.name match {
       case "__LINE__" => ResolvedAst.Expression.Str(loc.beginLine.toString, loc).toSuccess
+      case "__FILE__" => ResolvedAst.Expression.Str(loc.source.name, loc).toSuccess
+      case "__LOCATION__" => ResolvedAst.Expression.Str(loc.format, loc).toSuccess
+
+      case "__ASSERT__" => ResolvedAst.Expression.Str(loc.format, loc).toSuccess
+        // TODO: Would be nice to have a specific assertion failure thing.
+        val x = Symbol.freshVarSym()
+        val e1 = ResolvedAst.Expression.Var(x, Type.freshTypeVar(), loc)
+        val e2 = ResolvedAst.Expression.True(loc)
+        val e3 = ResolvedAst.Expression.UserError(Type.freshTypeVar(), loc)
+        val eb = ResolvedAst.Expression.IfThenElse(e1, e2, e3, Type.freshTypeVar(), loc)
+        mkLambda(x :: Nil, eb, loc).toSuccess
+
+      case "__EXIT__" =>
+        // TODO: Would be nice to have an explicit exit command.
+        val x = Symbol.freshVarSym()
+        val eb = ResolvedAst.Expression.UserError(Type.freshTypeVar(), loc)
+        mkLambda(x :: Nil, eb, loc).toSuccess
+
+      case "__DEBUG_STDERR__" =>
+        val clazz = classOf[flix.runtime.library.Console]
+        val method = clazz.getMethod("printLineStdErr", classOf[String])
+
+        val x = Symbol.freshVarSym()
+        val y = Symbol.freshVarSym()
+        val ep = ResolvedAst.Expression.Var(x, Type.freshTypeVar(), loc)
+        val e1 = ResolvedAst.Expression.NativeMethod(method, ep :: Nil, Type.freshTypeVar(), loc)
+        val e2 = ResolvedAst.Expression.Var(x, Type.freshTypeVar(), loc)
+        val eb = ResolvedAst.Expression.Let(y, e1, e2, Type.freshTypeVar(), loc)
+        mkLambda(x :: Nil, eb, loc).toSuccess
+
+      // TODO: We should have every primitive operation listed here...
 
       case "__INT32_SUB__" =>
         val x = Symbol.freshVarSym()
@@ -1698,7 +1729,7 @@ object Resolver extends Phase[NamedAst.Root, ResolvedAst.Program] {
         val e1 = ResolvedAst.Expression.Var(x, Type.freshTypeVar(), loc)
         val e2 = ResolvedAst.Expression.Var(y, Type.freshTypeVar(), loc)
         val eb = ResolvedAst.Expression.Binary(BinaryOperator.Minus, e1, e2, Type.freshTypeVar(), loc)
-        mkLambda(List(x, y), eb, loc).toSuccess
+        mkLambda(x :: y :: Nil, eb, loc).toSuccess
 
       case _ => ResolutionError.UndefinedName(qname, ns, loc).toFailure
     }
