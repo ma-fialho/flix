@@ -12,6 +12,7 @@ import ca.uwaterloo.flix.util.vt.TerminalContext
 import ca.uwaterloo.flix.util._
 
 import scala.collection.mutable
+import scala.io.StdIn
 
 /**
   * An interface to manage flix packages.
@@ -34,7 +35,19 @@ object Packager {
     //
     // Compute the name of the package based on the directory name.
     //
-    val packageName = getPackageName(p)
+    val defaultPackageName = getPackageName(p)
+
+    //
+    // Compute or ask for all the meta-data about the package.
+    //
+    val packageName = promptWithDefault("name", defaultPackageName)(o)
+    val version = promptWithDefault("version", "0.1.0")(o)
+    val license = promptWithDefault("license", "Apache-2")(o)
+    val keywords = promptWithDefault("keywords", "[]")(o)
+    val categories = promptWithDefault("categories", "[]")(o)
+    val description = promptWithDefault("description", "")(o)
+    val authorName = promptWithDefault("developer name", "Anonymous")(o)
+    val authorMail = promptWithDefault("developer email", "anonymous@example.com")(o)
 
     //
     // Compute all the directories and files we intend to create.
@@ -70,8 +83,15 @@ object Packager {
 
     newFile(packageFile) {
       s"""(package
-         |  (name     "$packageName")
-         |  (version  "0.1.0")
+         |  (name         "$packageName")
+         |  (version      "$version")
+         |  (license      "$license")
+         |  (keywords     [$keywords])
+         |  (categories   [$categories])
+         |  (description  "$description")
+         |  (authors
+         |    (author (name "$authorName") (mail "$authorMail"))
+         |  )
          |)
          |""".stripMargin
     }
@@ -286,6 +306,14 @@ object Packager {
     }
 
     result.toList
+  }
+
+  // TODO: DOC
+  private def promptWithDefault(prompt: String, default: String)(implicit o: Options): String = {
+    // TODO: Check whether to prompt or use default.
+    Console.print(s"$prompt ($default): ")
+    val result = StdIn.readLine()
+    if (result == null || result.isBlank) default else result
   }
 
   /**
