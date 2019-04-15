@@ -1642,7 +1642,7 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
        * Native Constructor expression.
        */
       case ResolvedAst.Expression.NativeConstructor(constructor, actuals, tpe, loc) =>
-        val es = actuals.map(e => reassembleExp(e, program, subst0))
+        val es = actuals.map(e => visitExp(e, subst0))
         TypedAst.Expression.NativeConstructor(constructor, es, subst0(tpe), Eff.Empty, loc)
 
       /*
@@ -1655,7 +1655,7 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
        * Native Method expression.
        */
       case ResolvedAst.Expression.NativeMethod(method, actuals, tpe, loc) =>
-        val es = actuals.map(e => reassembleExp(e, program, subst0))
+        val es = actuals.map(e => visitExp(e, subst0))
         TypedAst.Expression.NativeMethod(method, es, subst0(tpe), Eff.Empty, loc)
 
       /*
@@ -1736,15 +1736,15 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
        * ConstraintUnion expression.
        */
       case ResolvedAst.Expression.FixpointCompose(exp1, exp2, tvar, loc) =>
-        val e1 = reassembleExp(exp1, program, subst0)
-        val e2 = reassembleExp(exp2, program, subst0)
+        val e1 = visitExp(exp1, subst0)
+        val e2 = visitExp(exp2, subst0)
         TypedAst.Expression.FixpointCompose(e1, e2, subst0(tvar), Eff.Empty, loc)
 
       /*
        * FixpointSolve expression.
        */
       case ResolvedAst.Expression.FixpointSolve(exp, tvar, loc) =>
-        val e = reassembleExp(exp, program, subst0)
+        val e = visitExp(exp, subst0)
         TypedAst.Expression.FixpointSolve(e, subst0(tvar), Eff.Empty, loc)
 
       /*
@@ -1752,15 +1752,15 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
        */
       case ResolvedAst.Expression.FixpointProject(pred, exp, tvar, loc) =>
         val p = visitPredicateWithParam(pred)
-        val e = reassembleExp(exp, program, subst0)
+        val e = visitExp(exp, subst0)
         TypedAst.Expression.FixpointProject(p, e, subst0(tvar), Eff.Empty, loc)
 
       /*
        * ConstraintUnion expression.
        */
       case ResolvedAst.Expression.FixpointEntails(exp1, exp2, tvar, loc) =>
-        val e1 = reassembleExp(exp1, program, subst0)
-        val e2 = reassembleExp(exp2, program, subst0)
+        val e1 = visitExp(exp1, subst0)
+        val e2 = visitExp(exp2, subst0)
         TypedAst.Expression.FixpointEntails(e1, e2, subst0(tvar), Eff.Empty, loc)
 
       /*
@@ -1781,7 +1781,7 @@ object Typer extends Phase[ResolvedAst.Program, TypedAst.Root] {
       */
     def visitPredicateWithParam(pred: ResolvedAst.PredicateWithParam): TypedAst.PredicateWithParam = pred match {
       case ResolvedAst.PredicateWithParam(sym, exp) =>
-        val e = reassembleExp(exp, program, subst0)
+        val e = visitExp(exp, subst0)
         TypedAst.PredicateWithParam(sym, e)
     }
 
