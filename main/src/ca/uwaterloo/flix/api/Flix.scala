@@ -253,7 +253,8 @@ class Flix {
       Stratifier |>
       QuickChecker |>
       Verifier |>
-      JvmBackend
+      JvmBackend |>
+      Finish
 
     // Apply the pipeline to the parsed AST.
     pipeline.run(typedAst)(this)
