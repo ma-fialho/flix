@@ -345,6 +345,8 @@ object JvmOps {
       // The type resides in the root package.
       JvmType.Reference(JvmName(RootPackage, name))
 
+    case _ => throw InternalCompilerException(s"Unexpected type: $tpe.")
+
   }
 
 
@@ -650,9 +652,11 @@ object JvmOps {
         val d = default.map(visitExp).getOrElse(Set.empty)
         rs ++ d
 
-      case Expression.Spawn(exp, tpe, loc) => visitExp(exp)
+      case Expression.ProcessSpawn(exp, tpe, loc) => visitExp(exp)
 
-      case Expression.Sleep(exp, tpe, loc) => visitExp(exp)
+      case Expression.ProcessSleep(exp, tpe, loc) => visitExp(exp)
+
+      case Expression.ProcessPanic(msg, tpe, loc) => Set.empty
 
       case Expression.FixpointConstraint(con, tpe, loc) => Set.empty
 
@@ -934,9 +938,11 @@ object JvmOps {
         val d = default.map(visitExp).getOrElse(Set.empty)
         rs ++ d
 
-      case Expression.Spawn(exp, tpe, loc) => visitExp(exp) + tpe
+      case Expression.ProcessSpawn(exp, tpe, loc) => visitExp(exp) + tpe
 
-      case Expression.Sleep(exp, tpe, loc) => visitExp(exp) + tpe
+      case Expression.ProcessSleep(exp, tpe, loc) => visitExp(exp) + tpe
+
+      case Expression.ProcessPanic(msg, tpe, loc) => Set(tpe)
 
       case Expression.FixpointConstraint(c, tpe, loc) => visitConstraint(c) + tpe
 
