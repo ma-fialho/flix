@@ -226,6 +226,7 @@ class Flix {
         Effects |>
         PatternExhaustiveness |>
         Redundancy |>
+        Trivial |>
         Safety
 
     // Apply the pipeline to the parsed AST.
